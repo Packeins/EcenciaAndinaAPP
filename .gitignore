@@ -1,0 +1,14 @@
+# Dependencias
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Variables de entorno (Seguridad)
+.env
+
+# Base de datos local
+mysql_data/
+
+# Otros
+.DS_Store
+dist/
