@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { OrderProduct, TipoAlmuerzo } from '@/types';
-import { mockProducts, tiposAlmuerzo, platosFuertes, sopas } from '@/data/mockData';
+import { mockProducts } from '@/data/mockData';
+import { useMenu } from '@/data/menuStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,7 @@ interface OrderFormFieldsProps {
 
 export function OrderFormFields({ state, onChange, showProductos }: OrderFormFieldsProps) {
   const [search, setSearch] = useState('');
+  const { tipos: tiposAlmuerzo, platos: platosFuertes, sopas } = useMenu();
 
   const update = (patch: Partial<OrderFormState>) => onChange({ ...state, ...patch });
 

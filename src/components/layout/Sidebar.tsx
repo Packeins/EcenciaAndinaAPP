@@ -11,6 +11,7 @@ import {
   LogOut,
   UtensilsCrossed,
   UserCog,
+  ChefHat,
   KeyRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,12 @@ const navItems: NavItem[] = [
     path: '/pedidos',
     icon: <ClipboardList className="h-5 w-5" />,
     roles: ['caja', 'administrador'],
+  },
+  {
+    label: 'Menú Diario',
+    path: '/menu',
+    icon: <ChefHat className="h-5 w-5" />,
+    roles: ['administrador'],
   },
   {
     label: 'Reportes',
