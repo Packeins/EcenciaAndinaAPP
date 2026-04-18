@@ -1,19 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserRole } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UtensilsCrossed, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rol, setRol] = useState<UserRole>('caja');
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -26,10 +23,10 @@ export default function Login() {
       return;
     }
 
-    const success = login(email, password, rol);
-    if (success) {
+    const result = login(email, password);
+    if (result.success) {
       toast.success('Bienvenido al sistema');
-      navigate(rol === 'administrador' ? '/dashboard' : '/pedidos');
+      navigate(result.rol === 'administrador' ? '/dashboard' : '/pedidos');
     } else {
       toast.error('Credenciales inválidas');
     }
@@ -82,24 +79,12 @@ export default function Login() {
                 </button>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="rol">Rol</Label>
-              <Select value={rol} onValueChange={(value: UserRole) => setRol(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar rol" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="administrador">Administrador</SelectItem>
-                  <SelectItem value="caja">Caja</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <Button type="submit" className="w-full" size="lg">
               Iniciar Sesión
             </Button>
           </form>
           <p className="mt-4 text-center text-xs text-muted-foreground">
-            Use cualquier credencial para acceder al demo
+            Use un email con "admin" para acceder como administrador, o cualquier otro para caja.
           </p>
         </CardContent>
       </Card>

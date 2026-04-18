@@ -3,7 +3,7 @@ import { User, UserRole } from '@/types';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, rol: UserRole) => boolean;
+  login: (email: string, password: string) => { success: boolean; rol: UserRole };
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -13,18 +13,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  const login = (email: string, password: string, rol: UserRole): boolean => {
-    // Simulated authentication
+  const login = (email: string, password: string): { success: boolean; rol: UserRole } => {
     if (email && password) {
+      const rol: UserRole = email.toLowerCase().includes('admin') ? 'administrador' : 'caja';
       setUser({
         id: '1',
         nombre: rol === 'administrador' ? 'Administrador' : 'Cajero',
         email,
         rol,
       });
-      return true;
+      return { success: true, rol };
     }
-    return false;
+    return { success: false, rol: 'caja' };
   };
 
   const logout = () => {
