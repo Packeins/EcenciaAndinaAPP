@@ -7,6 +7,9 @@ export type OrderState = 'reservado' | 'consumido';
 // Client types
 export type ClientType = 'convenio' | 'frecuente';
 
+// Lunch types
+export type TipoAlmuerzo = 'normal' | 'vip' | 'ejecutivo';
+
 export interface User {
   id: string;
   nombre: string;
@@ -58,6 +61,9 @@ export interface Order {
   tipoCliente: ClientType;
   convenioNombre?: string;
   almuerzo: string;
+  tipoAlmuerzo: TipoAlmuerzo;
+  platoFuerte: string;
+  sopa: string;
   cantidad: number;
   estado: OrderState;
   productos: OrderProduct[];

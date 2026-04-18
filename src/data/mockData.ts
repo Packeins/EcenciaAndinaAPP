@@ -1,9 +1,27 @@
-import { Order, Client, Convenio, Product, User, DashboardMetrics, ChartData } from '@/types';
+import { Order, Client, Convenio, Product, User, DashboardMetrics, ChartData, TipoAlmuerzo } from '@/types';
 
 export const mockUsers: User[] = [
   { id: '1', nombre: 'Admin Usuario', email: 'admin@ecencia.com', rol: 'administrador' },
   { id: '2', nombre: 'Cajero Principal', email: 'caja@ecencia.com', rol: 'caja' },
 ];
+
+// Menú del día
+export const tiposAlmuerzo: { value: TipoAlmuerzo; label: string; precio: number }[] = [
+  { value: 'normal', label: 'Normal', precio: 4.5 },
+  { value: 'vip', label: 'VIP', precio: 6.5 },
+  { value: 'ejecutivo', label: 'Ejecutivo', precio: 8.5 },
+];
+
+export const platosFuertes: string[] = ['Lomo Saltado', 'Pollo a la Plancha'];
+export const sopas: string[] = ['Crema de Zapallo', 'Sopa Criolla'];
+
+export const getTipoAlmuerzoLabel = (tipo: TipoAlmuerzo): string => {
+  return tiposAlmuerzo.find((t) => t.value === tipo)?.label || tipo;
+};
+
+export const buildAlmuerzoLabel = (tipo: TipoAlmuerzo, plato: string, sopa: string): string => {
+  return `${getTipoAlmuerzoLabel(tipo)} — ${plato} + ${sopa}`;
+};
 
 export const mockConvenios: Convenio[] = [
   {
@@ -56,6 +74,21 @@ export const mockProducts: Product[] = [
   { id: '3', nombre: 'Postre del Día', precio: 2.50, categoria: 'Postres' },
   { id: '4', nombre: 'Café Americano', precio: 1.25, categoria: 'Bebidas' },
   { id: '5', nombre: 'Snack Saludable', precio: 1.75, categoria: 'Snacks' },
+  { id: '6', nombre: 'Agua Mineral', precio: 1.00, categoria: 'Bebidas' },
+  { id: '7', nombre: 'Té Helado', precio: 1.75, categoria: 'Bebidas' },
+  { id: '8', nombre: 'Limonada Natural', precio: 2.25, categoria: 'Bebidas' },
+  { id: '9', nombre: 'Capuchino', precio: 2.00, categoria: 'Bebidas' },
+  { id: '10', nombre: 'Flan de Caramelo', precio: 2.25, categoria: 'Postres' },
+  { id: '11', nombre: 'Helado Artesanal', precio: 2.75, categoria: 'Postres' },
+  { id: '12', nombre: 'Brownie con Helado', precio: 3.50, categoria: 'Postres' },
+  { id: '13', nombre: 'Fruta Fresca', precio: 1.50, categoria: 'Postres' },
+  { id: '14', nombre: 'Papas Fritas', precio: 2.00, categoria: 'Snacks' },
+  { id: '15', nombre: 'Nachos con Queso', precio: 3.00, categoria: 'Snacks' },
+  { id: '16', nombre: 'Empanada de Carne', precio: 1.75, categoria: 'Snacks' },
+  { id: '17', nombre: 'Porción Extra de Arroz', precio: 1.00, categoria: 'Extras' },
+  { id: '18', nombre: 'Porción Extra de Ensalada', precio: 1.25, categoria: 'Extras' },
+  { id: '19', nombre: 'Pan de Ajo', precio: 1.50, categoria: 'Extras' },
+  { id: '20', nombre: 'Salsa Adicional', precio: 0.50, categoria: 'Extras' },
 ];
 
 export const mockOrders: Order[] = [
@@ -66,7 +99,10 @@ export const mockOrders: Order[] = [
     whatsapp: '+593987654321',
     tipoCliente: 'convenio',
     convenioNombre: 'TechCorp S.A.',
-    almuerzo: 'Almuerzo Ejecutivo',
+    almuerzo: 'Ejecutivo — Lomo Saltado + Crema de Zapallo',
+    tipoAlmuerzo: 'ejecutivo',
+    platoFuerte: 'Lomo Saltado',
+    sopa: 'Crema de Zapallo',
     cantidad: 1,
     estado: 'reservado',
     productos: [{ productoId: '2', nombre: 'Jugo Natural', cantidad: 1, precio: 2.00 }],
@@ -81,7 +117,10 @@ export const mockOrders: Order[] = [
     whatsapp: '+593987654322',
     tipoCliente: 'convenio',
     convenioNombre: 'TechCorp S.A.',
-    almuerzo: 'Almuerzo Especial',
+    almuerzo: 'VIP — Pollo a la Plancha + Sopa Criolla',
+    tipoAlmuerzo: 'vip',
+    platoFuerte: 'Pollo a la Plancha',
+    sopa: 'Sopa Criolla',
     cantidad: 2,
     estado: 'reservado',
     productos: [],
@@ -95,7 +134,10 @@ export const mockOrders: Order[] = [
     clienteNombre: 'Juan Rodríguez',
     whatsapp: '+593998765432',
     tipoCliente: 'frecuente',
-    almuerzo: 'Almuerzo del Día',
+    almuerzo: 'Normal — Pollo a la Plancha + Crema de Zapallo',
+    tipoAlmuerzo: 'normal',
+    platoFuerte: 'Pollo a la Plancha',
+    sopa: 'Crema de Zapallo',
     cantidad: 1,
     estado: 'consumido',
     productos: [],
@@ -110,7 +152,10 @@ export const mockOrders: Order[] = [
     whatsapp: '+593912345678',
     tipoCliente: 'convenio',
     convenioNombre: 'Banco Nacional del Ecuador',
-    almuerzo: 'Almuerzo Ejecutivo',
+    almuerzo: 'Ejecutivo — Lomo Saltado + Sopa Criolla',
+    tipoAlmuerzo: 'ejecutivo',
+    platoFuerte: 'Lomo Saltado',
+    sopa: 'Sopa Criolla',
     cantidad: 1,
     estado: 'reservado',
     productos: [
@@ -127,7 +172,10 @@ export const mockOrders: Order[] = [
     clienteNombre: 'Laura Gómez',
     whatsapp: '+593976543210',
     tipoCliente: 'frecuente',
-    almuerzo: 'Almuerzo Económico',
+    almuerzo: 'Normal — Lomo Saltado + Crema de Zapallo',
+    tipoAlmuerzo: 'normal',
+    platoFuerte: 'Lomo Saltado',
+    sopa: 'Crema de Zapallo',
     cantidad: 1,
     estado: 'reservado',
     productos: [],

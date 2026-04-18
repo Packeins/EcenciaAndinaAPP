@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { mockOrders } from '@/data/mockData';
-import { Order, OrderState, ClientType } from '@/types';
+import { Order, OrderState } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
 import { ClientTypeBadge } from '@/components/orders/ClientTypeBadge';
 import { EditOrderDialog } from '@/components/orders/EditOrderDialog';
-import { Pencil, CheckCircle, Phone, Search, MessageCircle } from 'lucide-react';
+import { NewOrderDialog } from '@/components/orders/NewOrderDialog';
+import { Pencil, CheckCircle, Phone, Search, MessageCircle, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Pedidos() {
@@ -19,6 +20,7 @@ export default function Pedidos() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [newOrderOpen, setNewOrderOpen] = useState(false);
 
   const filteredOrders = orders.filter((order) => {
     const matchEstado = filterEstado === 'all' || order.estado === filterEstado;
@@ -36,6 +38,10 @@ export default function Pedidos() {
 
   const handleSaveOrder = (updatedOrder: Order) => {
     setOrders(orders.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
+  };
+
+  const handleCreateOrder = (newOrder: Order) => {
+    setOrders([newOrder, ...orders]);
   };
 
   const handleMarkConsumed = (orderId: string) => {
@@ -56,11 +62,17 @@ export default function Pedidos() {
             Gestión de pedidos recibidos por WhatsApp
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2">
-          <MessageCircle className="h-5 w-5 text-primary" />
-          <span className="font-medium text-foreground">
-            {reservedCount} pedidos pendientes
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2">
+            <MessageCircle className="h-5 w-5 text-primary" />
+            <span className="font-medium text-foreground">
+              {reservedCount} pedidos pendientes
+            </span>
+          </div>
+          <Button onClick={() => setNewOrderOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nuevo Pedido
+          </Button>
         </div>
       </div>
 
@@ -192,6 +204,12 @@ export default function Pedidos() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSave={handleSaveOrder}
+      />
+
+      <NewOrderDialog
+        open={newOrderOpen}
+        onOpenChange={setNewOrderOpen}
+        onCreate={handleCreateOrder}
       />
     </div>
   );
