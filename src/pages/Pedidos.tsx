@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { mockOrders } from '@/data/mockData';
-import { Order, OrderState, ClientType } from '@/types';
+import { Order, OrderState } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
