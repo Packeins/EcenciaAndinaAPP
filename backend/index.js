@@ -1,33 +1,51 @@
+require('dotenv').config({ path: '../.env' });
 const express = require('express');
-const db = require('./src/config/db'); // Asegúrate de que la ruta sea correcta
+const supabase = require('./src/config/supabase'); // Configuración de Supabase
+const authRoutes = require('./src/routes/auth'); // Importamos las nuevas rutas de login
+
 const app = express();
 
-// Middleware para entender JSON (lo necesitaremos luego para el login)
+// --- MIDDLEWARES ---
+// Esto permite que el servidor entienda los datos JSON que enviaremos en el login
 app.use(express.json());
 
-// 1. Ruta base para probar que el servidor vive
+// --- RUTAS ---
+
+// 1. Ruta base de prueba
 app.get('/', (req, res) => {
-  res.send('Backend funcionando 🚀');
+  res.send('Backend funcionando 🚀 (Migrado a Supabase)');
 });
 
-// 2. Ruta para probar la conexión a la base de datos
+// 2. Ruta para verificar la base de datos (Supabase)
 app.get('/api/check-db', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT usuario, rol FROM Usuarios_Internos LIMIT 1');
+    // Si tienes una tabla Usuarios_Internos en Supabase, esto funcionará. 
+    // Caso contrario, al menos verificamos que el cliente no se caiga.
+    const { data, error } = await supabase.from('Usuarios_Internos').select('*').limit(1);
+    
+    if (error) {
+      throw error;
+    }
+
     res.json({
-      mensaje: "Backend y Base de datos conectados",
-      datos_prueba: rows[0]
+      mensaje: "Backend y Supabase conectados exitosamente",
+      datos_prueba: data
     });
   } catch (error) {
     res.status(500).json({ 
-      error: "Error en la base de datos", 
+      error: "Error conectando a Supabase", 
       detalle: error.message 
     });
   }
 });
 
-// Un solo listen para todo el servidor
+// 3. Conexión de las rutas de Autenticación
+// Esto significa que todas las rutas dentro de auth.js empezarán con /api/auth
+app.use('/api/auth', authRoutes);
+
+// --- INICIO DEL SERVIDOR ---
 const PORT = 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`🔑 Rutas de autenticación listas en http://localhost:${PORT}/api/auth/login`);
 });
