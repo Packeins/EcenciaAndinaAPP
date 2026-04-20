@@ -1,12 +1,15 @@
 require('dotenv').config({ path: '../.env' });
 const express = require('express');
+const cors = require('cors');
 const supabase = require('./src/config/supabase'); // Configuración de Supabase
 const authRoutes = require('./src/routes/auth'); // Importamos las nuevas rutas de login
 
 const app = express();
 
 // --- MIDDLEWARES ---
-// Esto permite que el servidor entienda los datos JSON que enviaremos en el login
+// CORS permite que el frontend (puerto 3001) haga peticiones al backend (puerto 3000)
+app.use(cors());
+// Esto permite que el servidor entienda los datos JSON
 app.use(express.json());
 
 // --- RUTAS ---
@@ -39,9 +42,13 @@ app.get('/api/check-db', async (req, res) => {
   }
 });
 
-// 3. Conexión de las rutas de Autenticación
-// Esto significa que todas las rutas dentro de auth.js empezarán con /api/auth
+// 3. Conexión de las Rutas de la API
+// Esto significa que todas las rutas empezarán con /api/...
 app.use('/api/auth', authRoutes);
+app.use('/api/productos', require('./src/routes/productos'));
+app.use('/api/clientes', require('./src/routes/clientes'));
+app.use('/api/ordenes', require('./src/routes/ordenes'));
+app.use('/api/convenios', require('./src/routes/convenios'));
 
 // --- INICIO DEL SERVIDOR ---
 const PORT = 3000;
