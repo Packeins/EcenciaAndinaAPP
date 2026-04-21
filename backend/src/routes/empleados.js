@@ -47,6 +47,24 @@ router.put('/:id/estado', authMiddleware, async (req, res) => {
     }
 });
 
+// Obtener perfil propio (datos personales)
+router.get('/perfil', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { data, error } = await supabase
+            .from('empleados')
+            .select(`*, roles (nombre_rol)`)
+            .eq('id', userId)
+            .single();
+
+        if (error) throw error;
+        
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Actualizar perfil propio (datos personales)
 router.put('/perfil', authMiddleware, async (req, res) => {
     try {
@@ -91,6 +109,37 @@ router.put('/perfil/password', authMiddleware, async (req, res) => {
         }
 
         res.json({ mensaje: 'Contraseña actualizada correctamente' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Enviar enlace de recuperación de contraseña a un empleado
+router.post('/:id/reset-password', authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Obtener el correo del empleado
+        const { data: empleado, error: empleadoError } = await supabase
+            .from('empleados')
+            .select('correo')
+            .eq('id', id)
+            .single();
+
+        if (empleadoError || !empleado) {
+            return res.status(404).json({ error: 'Empleado no encontrado' });
+        }
+
+        if (!empleado.correo) {
+            return res.status(400).json({ error: 'El empleado no tiene un correo registrado' });
+        }
+
+        // Llamar a resetPasswordForEmail
+        const { error } = await supabase.auth.resetPasswordForEmail(empleado.correo);
+
+        if (error) throw error;
+
+        res.json({ mensaje: `Se ha enviado un enlace de recuperación a ${empleado.correo}` });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

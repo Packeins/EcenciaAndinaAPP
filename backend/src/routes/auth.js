@@ -38,6 +38,10 @@ router.post('/login', async (req, res) => {
             password 
         });
 
+        if (error || !data.user) {
+            return res.status(401).json({ mensaje: "Credenciales inválidas" });
+        }
+
         // Fetch employee details and role
         const { data: empleadoData } = await supabase
             .from('empleados')
