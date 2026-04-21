@@ -15,7 +15,7 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email || !password) {
@@ -23,12 +23,12 @@ export default function Login() {
       return;
     }
 
-    const result = login(email, password);
+    const result = await login(email, password);
     if (result.success) {
       toast.success('Bienvenido al sistema');
       navigate(result.rol === 'administrador' ? '/dashboard' : '/pedidos');
     } else {
-      toast.error('Credenciales inválidas');
+      toast.error(result.message || 'Credenciales inválidas');
     }
   };
 
@@ -54,8 +54,8 @@ export default function Login() {
               <Label htmlFor="email">Usuario</Label>
               <Input
                 id="email"
-                type="email"
-                placeholder="correo@ejemplo.com"
+                type="text"
+                placeholder="Correo electrónico o nombre de usuario"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -66,7 +66,7 @@ export default function Login() {
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
+                  placeholder="Ingrese su contraseña"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -84,7 +84,7 @@ export default function Login() {
             </Button>
           </form>
           <p className="mt-4 text-center text-xs text-muted-foreground">
-            Use un email con "admin" para acceder como administrador, o cualquier otro para caja.
+            Ingrese sus credenciales oficiales para acceder al sistema.
           </p>
         </CardContent>
       </Card>

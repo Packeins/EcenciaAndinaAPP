@@ -13,6 +13,8 @@ export type TipoAlmuerzo = 'normal' | 'vip' | 'ejecutivo';
 export interface User {
   id: string;
   nombre: string;
+  apellido?: string;
+  nombre_usuario?: string;
   email: string;
   rol: UserRole;
 }

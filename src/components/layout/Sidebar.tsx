@@ -70,7 +70,7 @@ const navItems: NavItem[] = [
     roles: ['administrador'],
   },
   {
-    label: 'Usuarios Caja',
+    label: 'Empleados',
     path: '/usuarios',
     icon: <UserCog className="h-5 w-5" />,
     roles: ['administrador'],
@@ -136,6 +136,17 @@ export function Sidebar() {
           <p className="text-sm font-medium text-foreground">{user?.nombre}</p>
           <p className="text-xs text-muted-foreground capitalize">{user?.rol}</p>
         </div>
+        
+        <Link to="/perfil">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 mb-2 text-muted-foreground hover:text-foreground"
+          >
+            <UserCog className="h-4 w-4" />
+            Mi Perfil
+          </Button>
+        </Link>
         
         {/* Password Recovery - Only for Admin */}
         {user?.rol === 'administrador' && (
