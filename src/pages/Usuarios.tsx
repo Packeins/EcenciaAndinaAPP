@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Pencil, Trash2, UserCog } from 'lucide-react';
+import { Plus, Pencil, Trash2, UserCog, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -88,6 +88,27 @@ export default function Usuarios() {
 
   const handleDelete = (id: string) => {
     toast.info('Eliminar empleados en construcción.');
+  };
+
+  const handleResetPassword = async (id: string, nombre: string) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/empleados/${id}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        toast.success(data.mensaje || `Enlace enviado a ${nombre}`);
+      } else {
+        toast.error(data.error || 'Error al enviar enlace de recuperación');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Error de conexión');
+    }
   };
 
   const handleToggleClick = (user: Empleado) => {
@@ -212,7 +233,16 @@ export default function Usuarios() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => handleResetPassword(user.id, user.nombre)}
+                        title="Enviar enlace de recuperación de contraseña"
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => openEditDialog(user)}
+                        title="Editar empleado"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -222,6 +252,7 @@ export default function Usuarios() {
                         disabled={currentUser?.id === user.id}
                         onClick={() => handleDelete(user.id)}
                         className="text-destructive hover:text-destructive disabled:opacity-50"
+                        title="Eliminar empleado"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

@@ -21,6 +21,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(JSON.parse(savedUser));
       } catch(e) {}
     }
+
+    // Escuchar cambios en localStorage (para cerrar sesión en todas las pestañas)
+    const handleStorageChange = (e: StorageEvent) => {
+      // Si otra pestaña eliminó el token o el usuario (cerrar sesión)
+      if (e.key === 'user' && e.newValue === null) {
+        setUser(null);
+      }
+      // Si otra pestaña actualizó el usuario (como cambio de perfil)
+      if (e.key === 'user' && e.newValue !== null) {
+        try {
+          setUser(JSON.parse(e.newValue));
+        } catch(err) {}
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; rol: UserRole; message?: string }> => {

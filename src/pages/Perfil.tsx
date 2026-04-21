@@ -6,11 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { UserCog, KeyRound } from 'lucide-react';
+import { PasswordRequirements } from '@/components/auth/PasswordRequirements';
 
 export default function Perfil() {
   const { user, updateProfile } = useAuth();
   const [isSavingData, setIsSavingData] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   
   const [formData, setFormData] = useState({
     nombre: '',
@@ -22,6 +24,10 @@ export default function Perfil() {
     password: '',
     confirmPassword: '',
   });
+
+  const isPasswordValid = (pwd: string) => {
+    return pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /[0-9]/.test(pwd) && /[^A-Za-z0-9]/.test(pwd);
+  };
 
   useEffect(() => {
     if (user) {
@@ -77,8 +83,24 @@ export default function Perfil() {
       toast.error('Por favor complete ambas contraseñas');
       return;
     }
-    if (passwordData.password.length < 6) {
-      toast.error('La contraseña debe tener al menos 6 caracteres');
+    if (passwordData.password.length < 8) {
+      toast.error('La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+    if (!/[A-Z]/.test(passwordData.password)) {
+      toast.error('La contraseña debe incluir al menos una letra mayúscula');
+      return;
+    }
+    if (!/[a-z]/.test(passwordData.password)) {
+      toast.error('La contraseña debe incluir al menos una letra minúscula');
+      return;
+    }
+    if (!/[0-9]/.test(passwordData.password)) {
+      toast.error('La contraseña debe incluir al menos un número');
+      return;
+    }
+    if (!/[^A-Za-z0-9]/.test(passwordData.password)) {
+      toast.error('La contraseña debe incluir al menos un carácter especial');
       return;
     }
     if (passwordData.password !== passwordData.confirmPassword) {
@@ -184,31 +206,65 @@ export default function Perfil() {
             <CardDescription>Modifique su contraseña de acceso al sistema</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSavePassword} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="password">Nueva Contraseña</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={passwordData.password}
-                  onChange={(e) => setPasswordData({ ...passwordData, password: e.target.value })}
-                  placeholder="Mínimo 6 caracteres"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                  placeholder="Repita su nueva contraseña"
-                />
-              </div>
-              <Button type="submit" variant="secondary" className="w-full" disabled={isSavingPassword}>
-                {isSavingPassword ? 'Actualizando...' : 'Actualizar Contraseña'}
+            {!isChangingPassword ? (
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                onClick={() => setIsChangingPassword(true)}
+              >
+                Cambiar Contraseña
               </Button>
-            </form>
+            ) : (
+              <form onSubmit={handleSavePassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password">Nueva Contraseña</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={passwordData.password}
+                    onChange={(e) => setPasswordData({ ...passwordData, password: e.target.value })}
+                    placeholder="Escriba su nueva contraseña"
+                  />
+                  <PasswordRequirements password={passwordData.password} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                    placeholder="Repita su nueva contraseña"
+                  />
+                  {passwordData.confirmPassword && (
+                    <p className={`text-xs mt-1.5 flex items-center gap-1 font-medium ${passwordData.password === passwordData.confirmPassword ? 'text-green-500' : 'text-destructive'}`}>
+                      {passwordData.password === passwordData.confirmPassword ? '✓ Las contraseñas coinciden' : '✗ Las contraseñas no coinciden'}
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    className="w-full" 
+                    onClick={() => {
+                      setIsChangingPassword(false);
+                      setPasswordData({ password: '', confirmPassword: '' });
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    variant="secondary" 
+                    className="w-full" 
+                    disabled={isSavingPassword || !passwordData.password || passwordData.password !== passwordData.confirmPassword || !isPasswordValid(passwordData.password)}
+                  >
+                    {isSavingPassword ? 'Actualizando...' : 'Actualizar'}
+                  </Button>
+                </div>
+              </form>
+            )}
           </CardContent>
         </Card>
       </div>

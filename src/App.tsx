@@ -26,7 +26,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<Navigate to={`/login${window.location.hash}`} replace />} />
             <Route path="/login" element={<Login />} />
             <Route element={<DashboardLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
