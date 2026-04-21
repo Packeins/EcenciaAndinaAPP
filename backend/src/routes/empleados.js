@@ -145,4 +145,36 @@ router.post('/:id/reset-password', authMiddleware, async (req, res) => {
     }
 });
 
+// Actualizar contraseña de un empleado manualmente (Requiere SERVICE_ROLE_KEY)
+router.put('/:id/password', authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { password } = req.body;
+
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (!serviceRoleKey) {
+            return res.status(500).json({ error: 'Falta configurar SUPABASE_SERVICE_ROLE_KEY en el servidor' });
+        }
+
+        const { createClient } = require('@supabase/supabase-js');
+        const adminSupabase = createClient(process.env.SUPABASE_URL, serviceRoleKey, {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            }
+        });
+
+        const { data, error } = await adminSupabase.auth.admin.updateUserById(
+            id,
+            { password: password }
+        );
+
+        if (error) throw error;
+
+        res.json({ mensaje: 'Contraseña actualizada correctamente' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;
