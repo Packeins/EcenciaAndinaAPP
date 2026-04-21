@@ -5,16 +5,73 @@ const authMiddleware = require('../middlewares/authMiddleware');
 
 // Ruta para el LOGIN (Aún disponible por si necesitas probar desde Postman)
 router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+    // Aceptamos 'identificador' que puede ser correo o nombre de usuario
+    const { identificador, password } = req.body;
+    
+    // Por retrocompatibilidad, si envían 'email' lo usamos como identificador
+    const loginId = identificador || req.body.email;
+
+    if (!loginId || !password) {
+        return res.status(400).json({ mensaje: "El identificador (correo/usuario) y contraseña son obligatorios" });
+    }
 
     try {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-            return res.status(401).json({ mensaje: "Usuario o contraseña incorrectos", detalle: error.message });
+        let emailToLogin = loginId;
+
+        // Si no tiene '@', asumimos que es un nombre de usuario y buscamos su correo en la BD
+        if (!loginId.includes('@')) {
+            const { data: empleado, error: empError } = await supabase
+                .from('empleados')
+                .select('correo')
+                .eq('nombre_usuario', loginId)
+                .single();
+            
+            if (empError || !empleado || !empleado.correo) {
+                return res.status(401).json({ mensaje: "Usuario no encontrado o no tiene correo asociado" });
+            }
+            emailToLogin = empleado.correo;
         }
-        res.json({ mensaje: "¡Acceso concedido!", token: data.session.access_token, user: data.user });
+
+        // Iniciamos sesión en Supabase Auth con el correo resuelto
+        const { data, error } = await supabase.auth.signInWithPassword({ 
+            email: emailToLogin, 
+            password 
+        });
+
+        // Fetch employee details and role
+        const { data: empleadoData } = await supabase
+            .from('empleados')
+            .select(`
+                *,
+                roles (nombre_rol)
+            `)
+            .eq('id', data.user.id)
+            .single();
+            
+        // Verificar si el empleado fue desactivado
+        if (empleadoData && empleadoData.esta_activo === false) {
+            return res.status(403).json({ mensaje: "Su cuenta ha sido desactivada. Comuníquese con el administrador." });
+        }
+            
+        let rolFrontend = 'caja';
+        if (empleadoData?.roles?.nombre_rol?.toLowerCase() === 'administrativo') {
+            rolFrontend = 'administrador';
+        }
+
+        res.json({ 
+            mensaje: "¡Acceso concedido!", 
+            token: data.session.access_token, 
+            user: {
+                id: empleadoData?.id || data.user.id,
+                email: data.user.email,
+                nombre: empleadoData?.nombre || '',
+                apellido: empleadoData?.apellido || '',
+                nombre_usuario: empleadoData?.nombre_usuario || '',
+                rol: rolFrontend
+            } 
+        });
     } catch (error) {
-        res.status(500).json({ mensaje: "Error interno del servidor" });
+        res.status(500).json({ mensaje: "Error interno del servidor", detalle: error.message });
     }
 });
 

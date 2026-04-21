@@ -14,7 +14,7 @@ router.post('/', async (req, res) => {
     try {
         // 1. Crear la cabecera de la Orden
         const { data: orden, error: errorOrden } = await supabase
-            .from('Ordenes')
+            .from('ordenes')
             .insert([{ id_cliente, id_estado, id_origen, canal_origen, created_by: req.user.id }])
             .select()
             .single();
@@ -31,7 +31,7 @@ router.post('/', async (req, res) => {
         }));
 
         const { error: errorDetalles } = await supabase
-            .from('Detalle_Orden')
+            .from('detalle_orden')
             .insert(detallesAInsertar);
 
         if (errorDetalles) throw errorDetalles;

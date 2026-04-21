@@ -9,11 +9,11 @@ router.use(authMiddleware);
 router.get('/buscar/:cedula', async (req, res) => {
     try {
         const { data, error } = await supabase
-            .from('Clientes')
+            .from('clientes')
             .select(`
                 *,
-                Tipos_Cliente(nombre_tipo),
-                Saldos_Servicio(cantidad_disponible, Productos(nombre_producto))
+                tipos_cliente(nombre_tipo),
+                saldos_servicio(cantidad_disponible, productos(nombre_producto))
             `)
             .eq('cedula', req.params.cedula)
             .single();
@@ -31,7 +31,7 @@ router.post('/', async (req, res) => {
     
     try {
         const { data, error } = await supabase
-            .from('Clientes')
+            .from('clientes')
             .insert([
                 { cedula, nombre, apellido, telefono, id_tipo_cliente, created_by: req.user.id }
             ])

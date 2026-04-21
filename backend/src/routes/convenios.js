@@ -9,7 +9,7 @@ router.use(authMiddleware);
 router.get('/', async (req, res) => {
     try {
         const { data, error } = await supabase
-            .from('Convenios')
+            .from('convenios')
             .select(`
                 id_convenio,
                 nombre_empresa,
@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
                 telefono,
                 email,
                 esta_activo,
-                Clientes_Convenios(count)
+                clientes_convenios(count)
             `);
 
         if (error) throw error;
@@ -48,7 +48,7 @@ router.post('/', async (req, res) => {
     
     try {
         const { data, error } = await supabase
-            .from('Convenios')
+            .from('convenios')
             .insert([
                 { 
                     nombre_empresa: empresa, 
@@ -82,7 +82,7 @@ router.put('/:id', async (req, res) => {
 
     try {
         const { data, error } = await supabase
-            .from('Convenios')
+            .from('convenios')
             .update(actualizacion)
             .eq('id_convenio', id)
             .select();

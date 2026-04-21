@@ -22,9 +22,9 @@ app.get('/', (req, res) => {
 // 2. Ruta para verificar la base de datos (Supabase)
 app.get('/api/check-db', async (req, res) => {
   try {
-    // Si tienes una tabla Usuarios_Internos en Supabase, esto funcionará. 
+    // Si tienes una tabla Empleados en Supabase, esto funcionará. 
     // Caso contrario, al menos verificamos que el cliente no se caiga.
-    const { data, error } = await supabase.from('Usuarios_Internos').select('*').limit(1);
+    const { data, error } = await supabase.from('empleados').select('*').limit(1);
     
     if (error) {
       throw error;
@@ -49,9 +49,10 @@ app.use('/api/productos', require('./src/routes/productos'));
 app.use('/api/clientes', require('./src/routes/clientes'));
 app.use('/api/ordenes', require('./src/routes/ordenes'));
 app.use('/api/convenios', require('./src/routes/convenios'));
+app.use('/api/empleados', require('./src/routes/empleados'));
 
 // --- INICIO DEL SERVIDOR ---
-const PORT = 3000;
+const PORT = 3001;
 app.listen(PORT, () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
   console.log(`🔑 Rutas de autenticación listas en http://localhost:${PORT}/api/auth/login`);

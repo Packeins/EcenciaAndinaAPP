@@ -9,11 +9,13 @@ CREATE TABLE public.Roles (
   updated_by uuid
 );
 
-CREATE TABLE public.Usuarios_Internos (
+CREATE TABLE public.Empleados (
   id uuid primary key references auth.users(id) on delete cascade,
   id_rol bigint references public.Roles(id_rol),
   nombre text not null,
   apellido text not null,
+  nombre_usuario text not null unique,
+  correo text unique,
   esta_activo boolean default true,
   created_at timestamp with time zone default now(),
   created_by uuid,
@@ -151,7 +153,7 @@ END;
 $$ language 'plpgsql';
 
 CREATE TRIGGER update_roles_updated_at BEFORE UPDATE ON public.Roles FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-CREATE TRIGGER update_usuarios_updated_at BEFORE UPDATE ON public.Usuarios_Internos FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+CREATE TRIGGER update_empleados_updated_at BEFORE UPDATE ON public.Empleados FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER update_productos_updated_at BEFORE UPDATE ON public.Productos FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER update_convenios_updated_at BEFORE UPDATE ON public.Convenios FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER update_clientes_updated_at BEFORE UPDATE ON public.Clientes FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();

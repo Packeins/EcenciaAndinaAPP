@@ -10,12 +10,12 @@ router.use(authMiddleware);
 router.get('/', async (req, res) => {
     try {
         const { data, error } = await supabase
-            .from('Productos')
+            .from('productos')
             .select(`
                 id_producto,
                 nombre_producto,
                 precio_unitario,
-                Categorias_Productos (nombre_categoria)
+                categorias_productos (nombre_categoria)
             `);
 
         if (error) throw error;
@@ -31,7 +31,7 @@ router.post('/', async (req, res) => {
     
     try {
         const { data, error } = await supabase
-            .from('Productos')
+            .from('productos')
             .insert([
                 { 
                     id_categoria, 
