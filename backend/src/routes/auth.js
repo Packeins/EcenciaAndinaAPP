@@ -64,7 +64,8 @@ router.post('/login', async (req, res) => {
 
         res.json({ 
             mensaje: "¡Acceso concedido!", 
-            token: data.session.access_token, 
+            token: data.session.access_token,
+            refresh_token: data.session.refresh_token, 
             user: {
                 id: empleadoData?.id || data.user.id,
                 email: data.user.email,
@@ -88,6 +89,30 @@ router.get('/datos-privados', authMiddleware, async (req, res) => {
         usuario_autenticado: req.user.email,
         id_usuario: req.user.id
     });
+});
+
+// NUEVA RUTA: Refrescar Token
+router.post('/refresh', async (req, res) => {
+    const { refresh_token } = req.body;
+
+    if (!refresh_token) {
+        return res.status(400).json({ error: "Refresh token es obligatorio" });
+    }
+
+    try {
+        const { data, error } = await supabase.auth.refreshSession({ refresh_token });
+
+        if (error || !data.session) {
+            return res.status(401).json({ error: "Sesión expirada o token de refresco inválido" });
+        }
+
+        res.json({
+            token: data.session.access_token,
+            refresh_token: data.session.refresh_token
+        });
+    } catch (err) {
+        res.status(500).json({ error: "Error refrescando la sesión" });
+    }
 });
 
 module.exports = router;

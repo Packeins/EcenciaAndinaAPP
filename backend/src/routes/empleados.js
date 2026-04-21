@@ -10,6 +10,7 @@ router.get('/', authMiddleware, async (req, res) => {
             .from('empleados')
             .select(`
                 id,
+                id_rol,
                 nombre,
                 apellido,
                 correo,
@@ -27,6 +28,94 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 });
 
+// Crear un nuevo empleado
+router.post('/', authMiddleware, async (req, res) => {
+    try {
+        const { nombre, apellido, correo, password, nombre_usuario, id_rol } = req.body;
+        const creatorId = req.user.id;
+
+        // 0. Validaciones de duplicados (Correo y Usuario)
+        const { data: existingUser, error: checkError } = await supabase
+            .from('empleados')
+            .select('correo, nombre_usuario')
+            .or(`correo.eq.${correo},nombre_usuario.eq.${nombre_usuario}`);
+
+        if (checkError) throw checkError;
+
+        if (existingUser && existingUser.length > 0) {
+            const dupe = existingUser.find(u => u.correo === correo);
+            if (dupe) {
+                return res.status(400).json({ error: "El correo electrónico ya está registrado." });
+            }
+            const dupeUser = existingUser.find(u => u.nombre_usuario === nombre_usuario);
+            if (dupeUser) {
+                return res.status(400).json({ error: "El nombre de usuario ya está en uso." });
+            }
+        }
+
+        // 1. Crear el usuario en la autenticación de Supabase (Auth)
+        const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+            email: correo,
+            password: password,
+            email_confirm: true,
+            user_metadata: { nombre, apellido, nombre_usuario }
+        });
+
+        if (authError) throw authError;
+
+        // 2. Insertar los datos complementarios en la tabla 'empleados'
+        const { data: empleadoData, error: dbError } = await supabase
+            .from('empleados')
+            .insert({
+                id: authUser.user.id,
+                nombre,
+                apellido,
+                correo,
+                nombre_usuario,
+                id_rol,
+                esta_activo: true,
+                created_by: creatorId,
+                updated_by: creatorId
+            })
+            .select(`
+                id,
+                id_rol,
+                nombre,
+                apellido,
+                correo,
+                nombre_usuario,
+                esta_activo,
+                created_at,
+                roles (nombre_rol)
+            `)
+            .single();
+
+        if (dbError) {
+            // Si falla la BD, intentamos borrar el usuario de Auth para no dejar basura
+            await supabase.auth.admin.deleteUser(authUser.user.id);
+            throw dbError;
+        }
+
+        res.status(201).json(empleadoData);
+    } catch (error) {
+        console.error('Error creando empleado:', error);
+
+        // Traducir errores comunes de Supabase Auth / DB
+        const msgLower = (error.message || "").toLowerCase();
+        let mensajeError = error.message;
+
+        if (msgLower.includes('user already registered')) {
+            mensajeError = "Este correo electrónico ya está registrado.";
+        } else if (msgLower.includes('password should be at least')) {
+            mensajeError = "La contraseña debe tener al menos 6 caracteres.";
+        } else if (msgLower.includes('duplicate key') || msgLower.includes('unique constraint')) {
+            mensajeError = "Ya existe un empleado con este correo o nombre de usuario.";
+        }
+
+        res.status(500).json({ error: mensajeError });
+    }
+});
+
 // Actualizar estado (activo/inactivo) de un empleado
 router.put('/:id/estado', authMiddleware, async (req, res) => {
     try {
@@ -40,10 +129,63 @@ router.put('/:id/estado', authMiddleware, async (req, res) => {
             .select();
 
         if (error) throw error;
-        
+
         res.json({ mensaje: 'Estado actualizado correctamente', empleado: data[0] });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Actualizar datos de un empleado (nombre, apellido, usuario, rol)
+router.put('/:id', authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nombre, apellido, nombre_usuario, id_rol } = req.body;
+
+        // Validación de usuario duplicado (si cambió)
+        const { data: existingUser, error: checkError } = await supabase
+            .from('empleados')
+            .select('id')
+            .eq('nombre_usuario', nombre_usuario)
+            .neq('id', id)
+            .maybeSingle();
+
+        if (checkError) throw checkError;
+        if (existingUser) {
+            return res.status(400).json({ error: "El nombre de usuario ya está en uso por otro empleado." });
+        }
+
+        const { data, error } = await supabase
+            .from('empleados')
+            .update({ nombre, apellido, nombre_usuario, id_rol })
+            .eq('id', id)
+            .select(`
+                id,
+                id_rol,
+                nombre,
+                apellido,
+                correo,
+                nombre_usuario,
+                esta_activo,
+                created_at,
+                roles (nombre_rol)
+            `)
+            .single();
+
+        if (error) throw error;
+
+        res.json(data);
+    } catch (error) {
+        console.error('Error actualizando empleado:', error);
+
+        const msgLower = (error.message || "").toLowerCase();
+        let mensajeError = error.message;
+
+        if (msgLower.includes('duplicate key') || msgLower.includes('unique constraint')) {
+            mensajeError = "El nombre de usuario o correo ya está en uso por otro empleado.";
+        }
+
+        res.status(500).json({ error: mensajeError });
     }
 });
 
@@ -58,7 +200,7 @@ router.get('/perfil', authMiddleware, async (req, res) => {
             .single();
 
         if (error) throw error;
-        
+
         res.json(data);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -79,7 +221,7 @@ router.put('/perfil', authMiddleware, async (req, res) => {
             .single();
 
         if (error) throw error;
-        
+
         res.json({ mensaje: 'Perfil actualizado correctamente', empleado: data });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -89,27 +231,38 @@ router.put('/perfil', authMiddleware, async (req, res) => {
 // Actualizar contraseña propia
 router.put('/perfil/password', authMiddleware, async (req, res) => {
     try {
-        const { password } = req.body;
-        const token = req.headers.authorization.split(' ')[1]; // Extract token
+        const { currentPassword, newPassword } = req.body;
+        const email = req.user.email;
+        const userId = req.user.id;
 
-        // Llamar a la API REST de GoTrue de Supabase directamente
-        const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'apikey': process.env.SUPABASE_KEY
-            },
-            body: JSON.stringify({ password })
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'La contraseña actual y la nueva son obligatorias' });
+        }
+
+        // 1. Verificar la contraseña actual
+        // Creamos un cliente temporal para validar las credenciales actuales del usuario
+        const { createClient } = require('@supabase/supabase-js');
+        const authClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY);
+        
+        const { error: signInError } = await authClient.auth.signInWithPassword({
+            email,
+            password: currentPassword
         });
 
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.msg || err.message || 'Error al actualizar contraseña');
+        if (signInError) {
+            return res.status(401).json({ error: "La contraseña actual es incorrecta." });
         }
+
+        // 2. Actualizar a la nueva contraseña usando el cliente admin global
+        const { error: updateError } = await supabase.auth.admin.updateUserById(userId, { 
+            password: newPassword 
+        });
+
+        if (updateError) throw updateError;
 
         res.json({ mensaje: 'Contraseña actualizada correctamente' });
     } catch (error) {
+        console.error('Error en cambio de contraseña:', error);
         res.status(500).json({ error: error.message });
     }
 });

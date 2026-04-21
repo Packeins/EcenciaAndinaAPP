@@ -7,9 +7,7 @@ const authRoutes = require('./src/routes/auth'); // Importamos las nuevas rutas 
 const app = express();
 
 // --- MIDDLEWARES ---
-// CORS permite que el frontend (puerto 3001) haga peticiones al backend (puerto 3000)
 app.use(cors());
-// Esto permite que el servidor entienda los datos JSON
 app.use(express.json());
 
 // --- RUTAS ---
@@ -53,7 +51,23 @@ app.use('/api/empleados', require('./src/routes/empleados'));
 
 // --- INICIO DEL SERVIDOR ---
 const PORT = 3001;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
   console.log(`🔑 Rutas de autenticación listas en http://localhost:${PORT}/api/auth/login`);
+});
+
+// Manejo de cierre limpio (Ctrl+C)
+process.on('SIGINT', () => {
+  console.log('\n🛑 Recibido SIGINT. Cerrando servidor de forma limpia...');
+  server.close(() => {
+    console.log('✅ Servidor cerrado correctamente.');
+    process.exit(0);
+  });
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n🛑 Recibido SIGTERM. Cerrando servidor...');
+  server.close(() => {
+    process.exit(0);
+  });
 });
