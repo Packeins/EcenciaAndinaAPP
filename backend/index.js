@@ -48,6 +48,7 @@ app.use('/api/clientes', require('./src/routes/clientes'));
 app.use('/api/ordenes', require('./src/routes/ordenes'));
 app.use('/api/convenios', require('./src/routes/convenios'));
 app.use('/api/empleados', require('./src/routes/empleados'));
+app.use('/api/categorias', require('./src/routes/categorias'));
 
 // --- INICIO DEL SERVIDOR ---
 const PORT = 3001;

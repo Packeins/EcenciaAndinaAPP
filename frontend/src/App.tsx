@@ -13,6 +13,7 @@ import Convenios from './pages/Convenios';
 import Clientes from './pages/Clientes';
 import Usuarios from './pages/Usuarios';
 import Menu from './pages/Menu';
+import Productos from './pages/Productos';
 import NotFound from './pages/NotFound';
 import Perfil from './pages/Perfil';
 
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/usuarios" element={<Usuarios />} />
               <Route path="/perfil" element={<Perfil />} />
               <Route path="/menu" element={<Menu />} />
+              <Route path="/productos" element={<Productos />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

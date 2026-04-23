@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Convenio } from '@/types';
+import { Convenio, Client } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,9 +24,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Users, Building2, Mail, Phone, CalendarDays, FileText } from 'lucide-react';
+import { Plus, Pencil, Users, Building2, Mail, Phone, CalendarDays, Trash2, Search, UserPlus, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Convenios() {
   const [convenios, setConvenios] = useState<Convenio[]>([]);
@@ -36,7 +37,6 @@ export default function Convenios() {
   const [editingConvenio, setEditingConvenio] = useState<Convenio | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Confirmación para toggle activo/inactivo
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [convenioToToggle, setConvenioToToggle] = useState<Convenio | null>(null);
 
@@ -50,49 +50,56 @@ export default function Convenios() {
     fecha_caducidad: '',
   });
 
-  // --- CARGAR CONVENIOS DESDE EL BACKEND ---
+  // --- GESTIÓN DE COLABORADORES ---
+  const [associatedClients, setAssociatedClients] = useState<any[]>([]);
+  const [availableClients, setAvailableClients] = useState<any[]>([]);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newClientData, setNewClientData] = useState({
+    cedula: '',
+    nombre: '',
+    apellido: '',
+    telefono: ''
+  });
+
   useEffect(() => {
     fetchConvenios();
   }, []);
 
   const fetchConvenios = async () => {
     setIsLoading(true);
-    setError(null);
     try {
       const response = await apiFetch('http://localhost:3001/api/convenios');
       const data = await response.json();
-
-      if (response.ok) {
-        setConvenios(data);
-      } else {
-        setError(data.error || 'Error al obtener convenios');
-        toast.error(data.error || 'Error al cargar convenios');
-      }
-    } catch (err) {
-      console.error('Error fetching convenios:', err);
-      setError('Error de conexión con el servidor');
-      toast.error('Error de conexión con el servidor');
-    } finally {
-      setIsLoading(false);
-    }
+      if (response.ok) setConvenios(data);
+    } catch (err) { toast.error('Error de conexión'); }
+    finally { setIsLoading(false); }
   };
 
-  // --- FORMULARIO: ABRIR NUEVO ---
+  const fetchAssociatedClients = async (id: string) => {
+    setIsLoadingClients(true);
+    try {
+      const response = await apiFetch(`http://localhost:3001/api/convenios/${id}/clientes`);
+      if (response.ok) setAssociatedClients(await response.json());
+    } finally { setIsLoadingClients(false); }
+  };
+
+  const fetchAllClientsForSelection = async () => {
+    try {
+      const response = await apiFetch('http://localhost:3001/api/clientes');
+      if (response.ok) setAvailableClients(await response.json());
+    } catch (err) { console.error(err); }
+  };
+
   const handleOpenNew = () => {
     setEditingConvenio(null);
-    setFormData({
-      ruc: '',
-      nombre_empresa: '',
-      representante: '',
-      telefono: '',
-      email: '',
-      fecha_inicio: '',
-      fecha_caducidad: '',
-    });
+    setFormData({ ruc: '', nombre_empresa: '', representante: '', telefono: '', email: '', fecha_inicio: '', fecha_caducidad: '' });
+    setAssociatedClients([]);
     setDialogOpen(true);
+    setShowCreateForm(false);
   };
 
-  // --- FORMULARIO: ABRIR EDICIÓN ---
   const handleEdit = (convenio: Convenio) => {
     setEditingConvenio(convenio);
     setFormData({
@@ -104,231 +111,142 @@ export default function Convenios() {
       fecha_inicio: convenio.fecha_inicio,
       fecha_caducidad: convenio.fecha_caducidad,
     });
+    fetchAssociatedClients(convenio.id);
+    fetchAllClientsForSelection();
     setDialogOpen(true);
+    setShowCreateForm(false);
   };
 
-  // --- GUARDAR (CREAR O ACTUALIZAR) ---
   const handleSave = async () => {
-    if (
-      !formData.ruc ||
-      !formData.nombre_empresa ||
-      !formData.fecha_inicio ||
-      !formData.fecha_caducidad
-    ) {
-      toast.error('RUC, empresa, fecha inicio y fecha caducidad son requeridos');
-      return;
+    if (!formData.ruc || !formData.nombre_empresa || !formData.fecha_inicio || !formData.fecha_caducidad) {
+      toast.error('Campos obligatorios faltantes'); return;
     }
-
     setIsSaving(true);
     try {
-      if (editingConvenio) {
-        // ACTUALIZAR
-        const response = await apiFetch(
-          `http://localhost:3001/api/convenios/${editingConvenio.id}`,
-          {
-            method: 'PUT',
-            body: JSON.stringify(formData),
-          },
-        );
-        const data = await response.json();
-
-        if (response.ok) {
-          setConvenios(convenios.map((c) => (c.id === editingConvenio.id ? data : c)));
-          toast.success('Convenio actualizado correctamente');
-          setDialogOpen(false);
-        } else {
-          toast.error(data.error || 'Error al actualizar el convenio');
-        }
-      } else {
-        // CREAR
-        const response = await apiFetch('http://localhost:3001/api/convenios', {
-          method: 'POST',
-          body: JSON.stringify(formData),
-        });
-        const data = await response.json();
-
-        if (response.ok) {
-          setConvenios([data, ...convenios]);
-          toast.success('Convenio creado correctamente');
-          setDialogOpen(false);
-        } else {
-          toast.error(data.error || 'Error al crear el convenio');
-        }
-      }
-    } catch (err) {
-      console.error('Error guardando convenio:', err);
-      toast.error('Error de conexión con el servidor');
-    } finally {
-      setIsSaving(false);
-    }
+      const url = editingConvenio ? `http://localhost:3001/api/convenios/${editingConvenio.id}` : 'http://localhost:3001/api/convenios';
+      const method = editingConvenio ? 'PUT' : 'POST';
+      const response = await apiFetch(url, { method, body: JSON.stringify(formData) });
+      const data = await response.json();
+      if (response.ok) {
+        if (editingConvenio) setConvenios(convenios.map(c => c.id === editingConvenio.id ? data : c));
+        else setConvenios([data, ...convenios]);
+        toast.success(editingConvenio ? 'Actualizado' : 'Creado');
+        setDialogOpen(false);
+      } else toast.error(data.error);
+    } finally { setIsSaving(false); }
   };
 
-  // --- TOGGLE ACTIVO/INACTIVO ---
-  const handleToggleClick = (convenio: Convenio) => {
-    if (convenio.activo) {
-      // Pedir confirmación para desactivar
-      setConvenioToToggle(convenio);
-      setIsAlertOpen(true);
-    } else {
-      // Activar directamente
-      confirmToggle(convenio.id, true);
+  const handleAddClient = async (clientId: string) => {
+    if (!editingConvenio) return;
+    try {
+      const response = await apiFetch(`http://localhost:3001/api/convenios/${editingConvenio.id}/clientes`, {
+        method: 'POST', body: JSON.stringify({ id_cliente: clientId })
+      });
+      if (response.ok) {
+        toast.success('Cliente agregado');
+        fetchAssociatedClients(editingConvenio.id);
+        fetchConvenios();
+      } else {
+        const data = await response.json();
+        toast.error(data.error);
+      }
+    } catch (err) { toast.error('Error de conexión'); }
+  };
+
+  const handleCreateAndAddClient = async () => {
+    if (!newClientData.cedula || !newClientData.nombre || !newClientData.apellido) {
+      toast.error('Cédula, nombre y apellido son obligatorios'); return;
     }
+    if (!editingConvenio) return;
+    setIsSaving(true);
+    try {
+      const response = await apiFetch(`http://localhost:3001/api/convenios/${editingConvenio.id}/clientes/nuevo`, {
+        method: 'POST',
+        body: JSON.stringify(newClientData)
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success('Cliente creado y vinculado');
+        setAssociatedClients([...associatedClients, data]);
+        setShowCreateForm(false);
+        setNewClientData({ cedula: '', nombre: '', apellido: '', telefono: '' });
+        fetchConvenios();
+      } else toast.error(data.error);
+    } finally { setIsSaving(false); }
+  };
+
+  const handleRemoveClient = async (clientId: string) => {
+    if (!editingConvenio) return;
+    try {
+      const response = await apiFetch(`http://localhost:3001/api/convenios/${editingConvenio.id}/clientes/${clientId}`, { method: 'DELETE' });
+      if (response.ok) {
+        toast.success('Retirado');
+        setAssociatedClients(associatedClients.filter(c => c.id !== clientId));
+        fetchConvenios();
+      }
+    } catch (err) { toast.error('Error de conexión'); }
+  };
+
+  const handleToggleClick = (convenio: Convenio) => {
+    if (convenio.activo) { setConvenioToToggle(convenio); setIsAlertOpen(true); }
+    else confirmToggle(convenio.id, true);
   };
 
   const confirmToggle = async (id: string, newState: boolean) => {
     try {
-      const response = await apiFetch(`http://localhost:3001/api/convenios/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ activo: newState }),
-      });
-
+      const response = await apiFetch(`http://localhost:3001/api/convenios/${id}`, { method: 'PUT', body: JSON.stringify({ activo: newState }) });
       if (response.ok) {
         const data = await response.json();
-        setConvenios(convenios.map((c) => (c.id === id ? data : c)));
-
-        const nombre = convenios.find((c) => c.id === id)?.nombre_empresa || 'El convenio';
-        toast.success(newState ? `${nombre} ha sido activado.` : `${nombre} ha sido desactivado.`);
-      } else {
-        const data = await response.json();
-        toast.error(data.error || 'Error al cambiar el estado');
+        setConvenios(convenios.map(c => c.id === id ? data : c));
       }
-    } catch (err) {
-      console.error(err);
-      toast.error('Error de conexión');
-    } finally {
-      setIsAlertOpen(false);
-      setConvenioToToggle(null);
-    }
+    } finally { setIsAlertOpen(false); setConvenioToToggle(null); }
   };
 
-  // --- Helpers ---
+  const filteredAvailableClients = availableClients.filter(c => 
+    c.id_tipo_cliente === 1 &&
+    !associatedClients.find(ac => ac.id === c.id) &&
+    (c.nombre.toLowerCase().includes(clientSearch.toLowerCase()) || c.cedula.includes(clientSearch))
+  ).slice(0, 5);
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '—';
-    return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-EC', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  const isExpired = (fechaCaducidad: string) => {
-    if (!fechaCaducidad) return false;
-    return new Date(fechaCaducidad + 'T23:59:59') < new Date();
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Convenios</h1>
-          <p className="text-muted-foreground">Gestión de convenios empresariales</p>
-        </div>
-        <Button onClick={handleOpenNew} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nuevo Convenio
-        </Button>
+        <div><h1 className="text-2xl font-bold text-foreground">Convenios</h1><p className="text-muted-foreground">Gestión de convenios empresariales</p></div>
+        <Button onClick={handleOpenNew} className="gap-2"><Plus className="h-4 w-4" /> Nuevo Convenio</Button>
       </div>
 
-      {/* Convenios Grid */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="animate-pulse text-muted-foreground">Cargando convenios...</p>
-        </div>
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-16">
-          <p className="font-semibold text-destructive">Ocurrió un error</p>
-          <p className="text-sm text-muted-foreground">{error}</p>
-          <Button variant="outline" size="sm" onClick={fetchConvenios} className="mt-2">
-            Reintentar
-          </Button>
-        </div>
-      ) : convenios.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
-          <Building2 className="h-12 w-12 opacity-30" />
-          <p>No hay convenios registrados.</p>
-          <Button variant="outline" size="sm" onClick={handleOpenNew}>
-            Crear el primero
-          </Button>
-        </div>
+        <div className="flex flex-col items-center justify-center py-16"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {convenios.map((convenio) => (
-            <Card key={convenio.id} className="border-border">
+            <Card key={convenio.id}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                      <Building2 className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg text-foreground">
-                        {convenio.nombre_empresa}
-                      </CardTitle>
-                      <CardDescription>RUC: {convenio.ruc}</CardDescription>
-                    </div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><Building2 className="h-5 w-5 text-primary" /></div>
+                    <div><CardTitle className="text-lg">{convenio.nombre_empresa}</CardTitle><CardDescription>RUC: {convenio.ruc}</CardDescription></div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <Badge variant={convenio.activo ? 'default' : 'secondary'}>
-                      {convenio.activo ? 'Activo' : 'Inactivo'}
-                    </Badge>
-                    {isExpired(convenio.fecha_caducidad) && (
-                      <Badge variant="destructive" className="text-xs">
-                        Vencido
-                      </Badge>
-                    )}
-                  </div>
+                  <Badge variant={convenio.activo ? 'default' : 'secondary'}>{convenio.activo ? 'Activo' : 'Inactivo'}</Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Users className="h-4 w-4" />
-                    <span className="text-foreground">{convenio.representante || '—'}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="h-4 w-4" />
-                    <span className="text-foreground">{convenio.telefono || '—'}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Mail className="h-4 w-4" />
-                    <span className="text-foreground">{convenio.email || '—'}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <CalendarDays className="h-4 w-4" />
-                    <span className="text-xs text-foreground">
-                      {formatDate(convenio.fecha_inicio)} — {formatDate(convenio.fecha_caducidad)}
-                    </span>
-                  </div>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                   <div className="flex items-center gap-2 text-foreground"><Users className="h-4 w-4 text-muted-foreground" /> {convenio.representante || '—'}</div>
+                   <div className="flex items-center gap-2 text-foreground"><CalendarDays className="h-4 w-4 text-muted-foreground" /> {formatDate(convenio.fecha_inicio)} — {formatDate(convenio.fecha_caducidad)}</div>
                 </div>
-
                 <div className="flex items-center justify-between rounded-lg bg-accent p-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Colaboradores</p>
-                    <p className="font-semibold text-foreground">{convenio.totalColaboradores}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Consumo Mensual</p>
-                    <p className="font-semibold text-foreground">
-                      ${convenio.consumoMensual.toFixed(2)}
-                    </p>
-                  </div>
+                  <div><p className="text-xs text-muted-foreground">Colaboradores</p><p className="font-semibold">{convenio.totalColaboradores}</p></div>
+                  <div className="text-right"><p className="text-xs text-muted-foreground">Estado</p>{(new Date(convenio.fecha_caducidad + 'T23:59:59') < new Date()) ? <Badge variant="destructive">Vencido</Badge> : <Badge variant="outline">Vigente</Badge>}</div>
                 </div>
-
-                <div className="flex items-center justify-between border-t border-border pt-2">
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={convenio.activo}
-                      onCheckedChange={() => handleToggleClick(convenio)}
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      {convenio.activo ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => handleEdit(convenio)}>
-                    <Pencil className="mr-1 h-4 w-4" />
-                    Editar
-                  </Button>
+                <div className="flex items-center justify-between border-t pt-2">
+                  <Switch checked={convenio.activo} onCheckedChange={() => handleToggleClick(convenio)} />
+                  <Button variant="ghost" size="sm" onClick={() => handleEdit(convenio)}><Pencil className="mr-1 h-4 w-4" /> Editar</Button>
                 </div>
               </CardContent>
             </Card>
@@ -336,135 +254,101 @@ export default function Convenios() {
         </div>
       )}
 
-      {/* Dialog for Create/Edit */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-foreground">
-              {editingConvenio ? 'Editar Convenio' : 'Nuevo Convenio'}
-            </DialogTitle>
-            <DialogDescription>
-              {editingConvenio
-                ? 'Modifique los datos del convenio'
-                : 'Complete los datos del nuevo convenio empresarial'}
-            </DialogDescription>
+            <DialogTitle>{editingConvenio ? 'Editar Convenio' : 'Nuevo Convenio'}</DialogTitle>
+            <DialogDescription>Gestione la información y los colaboradores del convenio.</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="ruc">RUC *</Label>
-                <Input
-                  id="ruc"
-                  value={formData.ruc}
-                  onChange={(e) => setFormData({ ...formData, ruc: e.target.value })}
-                  placeholder="Ej: 1790012345001"
-                  maxLength={13}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nombre_empresa">Empresa *</Label>
-                <Input
-                  id="nombre_empresa"
-                  value={formData.nombre_empresa}
-                  onChange={(e) => setFormData({ ...formData, nombre_empresa: e.target.value })}
-                  placeholder="Nombre de la empresa"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="representante">Representante / Contacto</Label>
-              <Input
-                id="representante"
-                value={formData.representante}
-                onChange={(e) => setFormData({ ...formData, representante: e.target.value })}
-                placeholder="Nombre del representante"
-              />
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="telefono">Teléfono</Label>
-                <Input
-                  id="telefono"
-                  value={formData.telefono}
-                  onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-                  placeholder="+593 999999999"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="correo@empresa.com"
-                />
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="fecha_inicio">Fecha Inicio *</Label>
-                <Input
-                  id="fecha_inicio"
-                  type="date"
-                  value={formData.fecha_inicio}
-                  onChange={(e) => setFormData({ ...formData, fecha_inicio: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="fecha_caducidad">Fecha Caducidad *</Label>
-                <Input
-                  id="fecha_caducidad"
-                  type="date"
-                  value={formData.fecha_caducidad}
-                  onChange={(e) => setFormData({ ...formData, fecha_caducidad: e.target.value })}
-                />
-              </div>
-            </div>
-          </div>
+          <Tabs defaultValue="info" className="w-full mt-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="info">Información General</TabsTrigger>
+              <TabsTrigger value="clients" disabled={!editingConvenio}>Colaboradores ({associatedClients.length})</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="info" className="space-y-4 py-4">
+               <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2"><Label>RUC *</Label><Input value={formData.ruc} onChange={e => setFormData({...formData, ruc: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>Empresa *</Label><Input value={formData.nombre_empresa} onChange={e => setFormData({...formData, nombre_empresa: e.target.value})} /></div>
+               </div>
+               <div className="space-y-2"><Label>Representante</Label><Input value={formData.representante} onChange={e => setFormData({...formData, representante: e.target.value})} /></div>
+               <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2"><Label>Teléfono</Label><Input value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>Email</Label><Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
+               </div>
+               <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2"><Label>Fecha Inicio *</Label><Input type="date" value={formData.fecha_inicio} onChange={e => setFormData({...formData, fecha_inicio: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>Fecha Caducidad *</Label><Input type="date" value={formData.fecha_caducidad} onChange={e => setFormData({...formData, fecha_caducidad: e.target.value})} /></div>
+               </div>
+               <DialogFooter className="pt-4"><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button><Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar Datos'}</Button></DialogFooter>
+            </TabsContent>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving
-                ? editingConvenio
-                  ? 'Guardando...'
-                  : 'Creando...'
-                : editingConvenio
-                  ? 'Guardar Cambios'
-                  : 'Crear Convenio'}
-            </Button>
-          </DialogFooter>
+            <TabsContent value="clients" className="space-y-4 py-4">
+              {!showCreateForm ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input placeholder="Buscar por nombre o cédula..." className="pl-10" value={clientSearch} onChange={e => setClientSearch(e.target.value)} />
+                      {clientSearch && (
+                        <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-md">
+                          {filteredAvailableClients.length > 0 ? (
+                            filteredAvailableClients.map(c => (
+                              <div key={c.id} className="flex items-center justify-between p-2 hover:bg-accent cursor-pointer" onClick={() => { handleAddClient(c.id); setClientSearch(''); }}>
+                                <div><p className="text-sm font-medium">{c.nombre} {c.apellido}</p><p className="text-xs text-muted-foreground">{c.cedula}</p></div>
+                                <UserPlus className="h-4 w-4 text-primary" />
+                              </div>
+                            ))
+                          ) : (
+                            <div className="p-4 text-center space-y-2">
+                              <p className="text-sm text-muted-foreground">No se encontró al cliente.</p>
+                              <Button size="sm" variant="outline" onClick={() => setShowCreateForm(true)} className="gap-2"><Plus className="h-4 w-4" /> Registrar nuevo colaborador</Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <Button variant="outline" onClick={() => setShowCreateForm(true)} title="Registrar nuevo"><UserPlus className="h-4 w-4" /></Button>
+                  </div>
+
+                  <div className="rounded-md border max-h-[300px] overflow-y-auto">
+                    {isLoadingClients ? <p className="p-4 text-center text-sm">Cargando...</p> : associatedClients.length === 0 ? <p className="p-4 text-center text-sm text-muted-foreground">No hay colaboradores asignados.</p> :
+                      associatedClients.map(c => (
+                        <div key={c.id} className="flex items-center justify-between p-3 border-b last:border-0">
+                          <div><p className="text-sm font-medium">{c.nombre} {c.apellido}</p><p className="text-xs text-muted-foreground">{c.cedula}</p></div>
+                          <Button variant="ghost" size="sm" onClick={() => handleRemoveClient(c.id)} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Button variant="ghost" size="sm" onClick={() => setShowCreateForm(false)} className="h-8 w-8 p-0"><ArrowLeft className="h-4 w-4" /></Button>
+                    <h3 className="font-semibold">Nuevo Colaborador</h3>
+                  </div>
+                  <div className="space-y-2"><Label>Cédula *</Label><Input value={newClientData.cedula} onChange={e => setNewClientData({...newClientData, cedula: e.target.value})} maxLength={13} /></div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2"><Label>Nombre *</Label><Input value={newClientData.nombre} onChange={e => setNewClientData({...newClientData, nombre: e.target.value})} /></div>
+                    <div className="space-y-2"><Label>Apellido *</Label><Input value={newClientData.apellido} onChange={e => setNewClientData({...newClientData, apellido: e.target.value})} /></div>
+                  </div>
+                  <div className="space-y-2"><Label>Teléfono</Label><Input value={newClientData.telefono} onChange={e => setNewClientData({...newClientData, telefono: e.target.value})} /></div>
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="outline" className="flex-1" onClick={() => setShowCreateForm(false)}>Cancelar</Button>
+                    <Button className="flex-1" onClick={handleCreateAndAddClient} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Crear y Vincular'}</Button>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 
-      {/* Confirmación para desactivar */}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Desactivar convenio?</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Está seguro que desea desactivar el convenio con{' '}
-              <strong>{convenioToToggle?.nombre_empresa}</strong>?
-              <br />
-              <br />
-              El convenio quedará inactivo hasta que se reactive manualmente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setConvenioToToggle(null)}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => convenioToToggle && confirmToggle(convenioToToggle.id, false)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Sí, desactivar
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          <AlertDialogHeader><AlertDialogTitle>¿Desactivar convenio?</AlertDialogTitle><AlertDialogDescription>El convenio quedará inactivo hasta que se reactive manualmente.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel onClick={() => setConvenioToToggle(null)}>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => convenioToToggle && confirmToggle(convenioToToggle.id, false)} className="bg-destructive text-destructive-foreground">Sí, desactivar</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

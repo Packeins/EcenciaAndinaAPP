@@ -32,7 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Pencil, User, Phone, Search, IdCard, Users } from 'lucide-react';
+import { Plus, Pencil, User, Phone, Search, IdCard, Users, Building2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import {
@@ -371,9 +371,17 @@ export default function Clientes() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="bg-primary/5">
-                          {client.tipo_nombre || 'Frecuente'}
-                        </Badge>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className="w-fit bg-primary/5">
+                            {client.tipo_nombre || 'Frecuente'}
+                          </Badge>
+                          {client.convenio && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Building2 className="h-3 w-3" />
+                              {client.convenio.nombre}
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5 text-foreground">
@@ -486,6 +494,49 @@ export default function Clientes() {
                 </Select>
               </div>
             </div>
+
+            {/* SECCIÓN DE CONVENIO */}
+            {editingClient?.convenio && (
+              <div className="rounded-lg border border-border p-4 bg-accent/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Vinculado a Convenio</span>
+                  </div>
+                  <Badge variant="outline" className="bg-primary/10">Activo</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-foreground font-semibold">
+                    {editingClient.convenio.nombre}
+                  </span>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1 h-8"
+                    onClick={async () => {
+                      if (confirm(`¿Quitar a ${editingClient.nombre} del convenio ${editingClient.convenio?.nombre}?`)) {
+                        try {
+                          const res = await apiFetch(`http://localhost:3001/api/clientes/${editingClient.id}/convenio`, {
+                            method: 'DELETE'
+                          });
+                          if (res.ok) {
+                            toast.success('Vínculo eliminado');
+                            // Actualizar localmente
+                            setEditingClient({ ...editingClient, convenio: null });
+                            setClients(clients.map(c => c.id === editingClient.id ? { ...c, convenio: null } : c));
+                          }
+                        } catch (err) {
+                          toast.error('Error al desvincular');
+                        }
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Quitar del Convenio
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
