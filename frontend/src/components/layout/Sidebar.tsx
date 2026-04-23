@@ -63,7 +63,7 @@ const navItems: NavItem[] = [
     roles: ['administrador'],
   },
   {
-    label: 'Clientes Frecuentes',
+    label: 'Clientes',
     path: '/clientes',
     icon: <Users className="h-5 w-5" />,
     roles: ['administrador'],

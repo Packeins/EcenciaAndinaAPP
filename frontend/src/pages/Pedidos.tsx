@@ -114,7 +114,7 @@ export default function Pedidos() {
               <SelectContent>
                 <SelectItem value="all">Todos los tipos</SelectItem>
                 <SelectItem value="convenio">Convenio</SelectItem>
-                <SelectItem value="frecuente">Frecuente</SelectItem>
+                <SelectItem value="cliente">Cliente</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -5,7 +5,7 @@ export type UserRole = 'administrador' | 'caja';
 export type OrderState = 'reservado' | 'consumido';
 
 // Client types
-export type ClientType = 'convenio' | 'frecuente';
+export type ClientType = 'convenio' | 'cliente';
 
 // Lunch types
 export type TipoAlmuerzo = 'normal' | 'vip' | 'ejecutivo';
@@ -21,23 +21,26 @@ export interface User {
 
 export interface Client {
   id: string;
+  cedula: string;
   nombre: string;
-  whatsapp: string;
-  tipo: ClientType;
-  convenioId?: string;
-  maxAlmuerzos?: number;
+  apellido: string;
+  telefono: string;
   activo: boolean;
+  id_tipo_cliente?: number;
+  tipo_nombre?: string;
 }
 
 export interface Convenio {
   id: string;
-  nombre: string;
-  empresa: string;
-  contacto: string;
+  ruc: string;
+  nombre_empresa: string;
+  representante: string;
   telefono: string;
   email: string;
+  fecha_inicio: string;
+  fecha_caducidad: string;
   activo: boolean;
-  colaboradores: string[];
+  totalColaboradores: number;
   consumoMensual: number;
 }
 

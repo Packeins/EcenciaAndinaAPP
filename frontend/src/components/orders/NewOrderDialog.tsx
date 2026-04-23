@@ -30,7 +30,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
   const [clienteId, setClienteId] = useState<string>('');
   const [nombre, setNombre] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
-  const [tipoCliente, setTipoCliente] = useState<ClientType>('frecuente');
+  const [tipoCliente, setTipoCliente] = useState<ClientType>('cliente');
   const [convenioId, setConvenioId] = useState<string>('');
 
   const [state, setState] = useState<OrderFormState>({
@@ -48,7 +48,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
       setClienteId('');
       setNombre('');
       setWhatsapp('');
-      setTipoCliente('frecuente');
+      setTipoCliente('cliente');
       setConvenioId('');
       setState({
         tipoAlmuerzo: 'normal',
@@ -63,7 +63,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
 
   const selectedClient = mockClients.find((c) => c.id === clienteId);
   const effectiveTipoCliente: ClientType =
-    clientMode === 'existing' ? selectedClient?.tipo ?? 'frecuente' : tipoCliente;
+    clientMode === 'existing' ? 'cliente' : tipoCliente;
   const showProductos = effectiveTipoCliente === 'convenio';
 
   const handleCreate = () => {
@@ -77,12 +77,10 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
         toast.error('Seleccione un cliente');
         return;
       }
-      finalNombre = selectedClient.nombre;
-      finalWhatsapp = selectedClient.whatsapp;
+      finalNombre = `${selectedClient.nombre} ${selectedClient.apellido}`;
+      finalWhatsapp = selectedClient.telefono;
       finalClienteId = selectedClient.id;
-      if (selectedClient.tipo === 'convenio' && selectedClient.convenioId) {
-        finalConvenioNombre = mockConvenios.find((c) => c.id === selectedClient.convenioId)?.empresa;
-      }
+      // TODO: Determinar si el cliente pertenece a un convenio cuando se implemente Clientes_Convenios
     } else {
       if (!nombre.trim() || !whatsapp.trim()) {
         toast.error('Complete nombre y WhatsApp del cliente');
@@ -96,7 +94,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
           toast.error('Seleccione un convenio');
           return;
         }
-        finalConvenioNombre = mockConvenios.find((c) => c.id === convenioId)?.empresa;
+        finalConvenioNombre = mockConvenios.find((c) => c.id === convenioId)?.nombre_empresa;
       }
     }
 
@@ -177,7 +175,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
                       .filter((c) => c.activo)
                       .map((c) => (
                         <SelectItem key={c.id} value={c.id}>
-                          {c.nombre} — {c.whatsapp} ({c.tipo})
+                          {c.nombre} {c.apellido} — {c.telefono}
                         </SelectItem>
                       ))}
                   </SelectContent>
@@ -207,7 +205,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="frecuente">Frecuente</SelectItem>
+                      <SelectItem value="cliente">Cliente</SelectItem>
                       <SelectItem value="convenio">Convenio</SelectItem>
                     </SelectContent>
                   </Select>
@@ -224,7 +222,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
                           .filter((c) => c.activo)
                           .map((c) => (
                             <SelectItem key={c.id} value={c.id}>
-                              {c.empresa}
+                              {c.nombre_empresa}
                             </SelectItem>
                           ))}
                       </SelectContent>

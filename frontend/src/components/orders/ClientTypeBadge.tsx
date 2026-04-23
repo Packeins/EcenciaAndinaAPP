@@ -23,7 +23,7 @@ export function ClientTypeBadge({ type }: ClientTypeBadgeProps) {
       ) : (
         <User className="h-3 w-3" />
       )}
-      {type === 'convenio' ? 'Convenio' : 'Frecuente'}
+      {type === 'convenio' ? 'Convenio' : 'Cliente'}
     </Badge>
   );
 }

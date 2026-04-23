@@ -12,84 +12,153 @@ router.get('/', async (req, res) => {
             .from('convenios')
             .select(`
                 id_convenio,
+                ruc,
                 nombre_empresa,
                 representante,
                 telefono,
                 email,
+                fecha_inicio,
+                fecha_caducidad,
                 esta_activo,
-                clientes_convenios(count)
-            `);
+                created_at
+            `)
+            .order('created_at', { ascending: false });
 
         if (error) throw error;
 
-        // Formatear los datos para que coincidan exactamente con lo que espera el Frontend de Lovable
+        // Mapear al formato que espera el frontend
         const conveniosFormateados = data.map(conv => ({
             id: conv.id_convenio,
-            nombre: `Convenio ${conv.nombre_empresa}`, // El front espera un nombre de convenio
-            empresa: conv.nombre_empresa,
-            contacto: conv.representante, // Traducción del campo
-            telefono: conv.telefono,
-            email: conv.email,
+            ruc: conv.ruc,
+            nombre_empresa: conv.nombre_empresa,
+            representante: conv.representante || '',
+            telefono: conv.telefono || '',
+            email: conv.email || '',
+            fecha_inicio: conv.fecha_inicio,
+            fecha_caducidad: conv.fecha_caducidad,
             activo: conv.esta_activo,
-            colaboradores: new Array(conv.Clientes_Convenios[0]?.count || 0).fill(''), // Array vacío simulando colaboradores
-            consumoMensual: 0 // Esto se calcularía luego con las órdenes
+            // TODO: Calcular cuando existan tablas Clientes y Clientes_Convenios
+            totalColaboradores: 0,
+            // TODO: Calcular cuando existan tablas Ordenes y Detalle_Orden
+            consumoMensual: 0
         }));
 
         res.json(conveniosFormateados);
     } catch (error) {
+        console.error('Error obteniendo convenios:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 // CREAR NUEVO CONVENIO
 router.post('/', async (req, res) => {
-    // Recibimos los datos con los nombres del Frontend
-    const { nombre, empresa, contacto, telefono, email } = req.body;
-    
+    const { ruc, nombre_empresa, representante, telefono, email, fecha_inicio, fecha_caducidad } = req.body;
+
+    // Validaciones básicas
+    if (!ruc || !nombre_empresa || !fecha_inicio || !fecha_caducidad) {
+        return res.status(400).json({ error: 'RUC, nombre de empresa, fecha de inicio y fecha de caducidad son obligatorios.' });
+    }
+
     try {
         const { data, error } = await supabase
             .from('convenios')
             .insert([
-                { 
-                    nombre_empresa: empresa, 
-                    representante: contacto, 
-                    telefono, 
+                {
+                    ruc,
+                    nombre_empresa,
+                    representante,
+                    telefono,
                     email,
+                    fecha_inicio,
+                    fecha_caducidad,
                     created_by: req.user.id
                 }
             ])
-            .select();
+            .select()
+            .single();
 
-        if (error) throw error;
-        res.status(201).json({ mensaje: "Convenio creado", convenio: data[0] });
+        if (error) {
+            // Manejar duplicado de RUC
+            if (error.message.includes('duplicate key') || error.message.includes('unique constraint')) {
+                return res.status(400).json({ error: 'Ya existe un convenio con este RUC.' });
+            }
+            throw error;
+        }
+
+        // Devolver en el mismo formato que el GET
+        const convenioFormateado = {
+            id: data.id_convenio,
+            ruc: data.ruc,
+            nombre_empresa: data.nombre_empresa,
+            representante: data.representante || '',
+            telefono: data.telefono || '',
+            email: data.email || '',
+            fecha_inicio: data.fecha_inicio,
+            fecha_caducidad: data.fecha_caducidad,
+            activo: data.esta_activo,
+            totalColaboradores: 0,
+            consumoMensual: 0
+        };
+
+        res.status(201).json(convenioFormateado);
     } catch (error) {
+        console.error('Error creando convenio:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// ACTUALIZAR ESTADO O DATOS DEL CONVENIO
+// ACTUALIZAR DATOS DE UN CONVENIO
 router.put('/:id', async (req, res) => {
     const { id } = req.params;
-    // Si viene 'activo' del front, lo mapeamos a 'esta_activo' en la BD
-    const { activo, empresa, contacto, telefono, email } = req.body;
-    
+    const { activo, ruc, nombre_empresa, representante, telefono, email, fecha_inicio, fecha_caducidad } = req.body;
+
     const actualizacion = { updated_by: req.user.id };
     if (activo !== undefined) actualizacion.esta_activo = activo;
-    if (empresa !== undefined) actualizacion.nombre_empresa = empresa;
-    if (contacto !== undefined) actualizacion.representante = contacto;
+    if (ruc !== undefined) actualizacion.ruc = ruc;
+    if (nombre_empresa !== undefined) actualizacion.nombre_empresa = nombre_empresa;
+    if (representante !== undefined) actualizacion.representante = representante;
     if (telefono !== undefined) actualizacion.telefono = telefono;
     if (email !== undefined) actualizacion.email = email;
+    if (fecha_inicio !== undefined) actualizacion.fecha_inicio = fecha_inicio;
+    if (fecha_caducidad !== undefined) actualizacion.fecha_caducidad = fecha_caducidad;
 
     try {
         const { data, error } = await supabase
             .from('convenios')
             .update(actualizacion)
             .eq('id_convenio', id)
-            .select();
+            .select()
+            .single();
 
-        if (error) throw error;
-        res.json({ mensaje: "Convenio actualizado", convenio: data[0] });
+        if (error) {
+            if (error.message.includes('duplicate key') || error.message.includes('unique constraint')) {
+                return res.status(400).json({ error: 'Ya existe un convenio con este RUC.' });
+            }
+            throw error;
+        }
+
+        if (!data) {
+            return res.status(404).json({ error: 'Convenio no encontrado.' });
+        }
+
+        // Devolver en el mismo formato que el GET
+        const convenioFormateado = {
+            id: data.id_convenio,
+            ruc: data.ruc,
+            nombre_empresa: data.nombre_empresa,
+            representante: data.representante || '',
+            telefono: data.telefono || '',
+            email: data.email || '',
+            fecha_inicio: data.fecha_inicio,
+            fecha_caducidad: data.fecha_caducidad,
+            activo: data.esta_activo,
+            totalColaboradores: 0,
+            consumoMensual: 0
+        };
+
+        res.json(convenioFormateado);
     } catch (error) {
+        console.error('Error actualizando convenio:', error);
         res.status(500).json({ error: error.message });
     }
 });

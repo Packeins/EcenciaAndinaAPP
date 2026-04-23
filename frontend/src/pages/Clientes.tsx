@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { mockClients } from '@/data/mockData';
+import { useState, useEffect } from 'react';
 import { Client } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,91 +14,223 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, User, Phone, Search } from 'lucide-react';
+import { Plus, Pencil, User, Phone, Search, IdCard, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function Clientes() {
-  const [clients, setClients] = useState<Client[]>(
-    mockClients.filter((c) => c.tipo === 'frecuente')
-  );
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Confirmación para toggle activo/inactivo
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [clientToToggle, setClientToToggle] = useState<Client | null>(null);
+
   const [formData, setFormData] = useState({
+    cedula: '',
     nombre: '',
-    whatsapp: '',
-    maxAlmuerzos: 5,
+    apellido: '',
+    telefono: '',
+    id_tipo_cliente: 1,
   });
 
-  const filteredClients = clients.filter(
-    (c) =>
-      c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.whatsapp.includes(searchTerm)
-  );
+  const [clientTypes, setClientTypes] = useState<{ id_tipo_cliente: number; nombre_tipo: string }[]>([]);
 
-  const handleOpenNew = () => {
-    setEditingClient(null);
-    setFormData({ nombre: '', whatsapp: '', maxAlmuerzos: 5 });
-    setDialogOpen(true);
+  // --- CARGAR CLIENTES DESDE EL BACKEND ---
+  useEffect(() => {
+    fetchClientes();
+    fetchTipos();
+  }, []);
+
+  const fetchTipos = async () => {
+    try {
+      const response = await apiFetch('http://localhost:3001/api/clientes/tipos');
+      if (response.ok) {
+        const data = await response.json();
+        setClientTypes(data);
+      }
+    } catch (err) {
+      console.error('Error fetching tipos:', err);
+    }
   };
 
-  const handleEdit = (client: Client) => {
-    setEditingClient(client);
+  const fetchClientes = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await apiFetch('http://localhost:3001/api/clientes');
+      const data = await response.json();
+
+      if (response.ok) {
+        setClients(data);
+      } else {
+        setError(data.error || 'Error al obtener clientes');
+        toast.error(data.error || 'Error al cargar clientes');
+      }
+    } catch (err) {
+      console.error('Error fetching clientes:', err);
+      setError('Error de conexión con el servidor');
+      toast.error('Error de conexión con el servidor');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- FILTRO DE BÚSQUEDA ---
+  const filteredClients = clients.filter(
+    (c) =>
+      `${c.nombre} ${c.apellido}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.cedula.includes(searchTerm) ||
+      c.telefono.includes(searchTerm)
+  );
+
+  // --- FORMULARIO: ABRIR NUEVO ---
+  const handleOpenNew = () => {
+    setEditingClient(null);
     setFormData({
-      nombre: client.nombre,
-      whatsapp: client.whatsapp,
-      maxAlmuerzos: client.maxAlmuerzos || 5,
+      cedula: '',
+      nombre: '',
+      apellido: '',
+      telefono: '',
+      id_tipo_cliente: clientTypes[0]?.id_tipo_cliente || 1
     });
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!formData.nombre || !formData.whatsapp) {
-      toast.error('Nombre y WhatsApp son requeridos');
+  // --- FORMULARIO: ABRIR EDICIÓN ---
+  const handleEdit = (client: Client) => {
+    setEditingClient(client);
+    setFormData({
+      cedula: client.cedula,
+      nombre: client.nombre,
+      apellido: client.apellido,
+      telefono: client.telefono,
+      id_tipo_cliente: client.id_tipo_cliente || 1,
+    });
+    setDialogOpen(true);
+  };
+
+  // --- GUARDAR (CREAR O ACTUALIZAR) ---
+  const handleSave = async () => {
+    if (!formData.cedula || !formData.nombre || !formData.apellido) {
+      toast.error('Cédula, nombre y apellido son requeridos');
       return;
     }
 
-    if (editingClient) {
-      setClients(
-        clients.map((c) =>
-          c.id === editingClient.id
-            ? { ...c, ...formData }
-            : c
-        )
-      );
-      toast.success('Cliente actualizado correctamente');
-    } else {
-      const newClient: Client = {
-        id: Date.now().toString(),
-        nombre: formData.nombre,
-        whatsapp: formData.whatsapp,
-        tipo: 'frecuente',
-        maxAlmuerzos: formData.maxAlmuerzos,
-        activo: true,
-      };
-      setClients([...clients, newClient]);
-      toast.success('Cliente registrado correctamente');
+    setIsSaving(true);
+    try {
+      if (editingClient) {
+        // ACTUALIZAR
+        const response = await apiFetch(`http://localhost:3001/api/clientes/${editingClient.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(formData),
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+          setClients(clients.map((c) => (c.id === editingClient.id ? data : c)));
+          toast.success('Cliente actualizado correctamente');
+          setDialogOpen(false);
+        } else {
+          toast.error(data.error || 'Error al actualizar el cliente');
+        }
+      } else {
+        // CREAR
+        const response = await apiFetch('http://localhost:3001/api/clientes', {
+          method: 'POST',
+          body: JSON.stringify(formData),
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+          setClients([data, ...clients]);
+          toast.success('Cliente registrado correctamente');
+          setDialogOpen(false);
+        } else {
+          toast.error(data.error || 'Error al crear el cliente');
+        }
+      }
+    } catch (err) {
+      console.error('Error guardando cliente:', err);
+      toast.error('Error de conexión con el servidor');
+    } finally {
+      setIsSaving(false);
     }
-    setDialogOpen(false);
   };
 
-  const handleToggleActive = (id: string) => {
-    setClients(
-      clients.map((c) => (c.id === id ? { ...c, activo: !c.activo } : c))
-    );
-    toast.success('Estado del cliente actualizado');
+  // --- TOGGLE ACTIVO/INACTIVO ---
+  const handleToggleClick = (client: Client) => {
+    if (client.activo) {
+      setClientToToggle(client);
+      setIsAlertOpen(true);
+    } else {
+      confirmToggle(client.id, true);
+    }
   };
 
+  const confirmToggle = async (id: string, newState: boolean) => {
+    try {
+      const response = await apiFetch(`http://localhost:3001/api/clientes/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ activo: newState }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setClients(clients.map((c) => (c.id === id ? data : c)));
+
+        const nombre = clients.find(c => c.id === id);
+        const nombreCompleto = nombre ? `${nombre.nombre} ${nombre.apellido}` : 'El cliente';
+        toast.success(newState
+          ? `${nombreCompleto} ha sido activado.`
+          : `${nombreCompleto} ha sido desactivado.`
+        );
+      } else {
+        const data = await response.json();
+        toast.error(data.error || 'Error al cambiar el estado');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error de conexión');
+    } finally {
+      setIsAlertOpen(false);
+      setClientToToggle(null);
+    }
+  };
+
+  // --- STATS ---
   const activeCount = clients.filter((c) => c.activo).length;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Clientes Frecuentes</h1>
+          <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
           <p className="text-muted-foreground">
-            Gestión de clientes frecuentes registrados
+            Gestión de clientes registrados
           </p>
         </div>
         <Button onClick={handleOpenNew} className="gap-2">
@@ -158,13 +289,13 @@ export default function Clientes() {
             <div>
               <CardTitle className="text-foreground">Lista de Clientes</CardTitle>
               <CardDescription>
-                Administre los clientes frecuentes y sus límites
+                Administre los clientes y su información
               </CardDescription>
             </div>
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar cliente..."
+                placeholder="Buscar por nombre o cédula..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -178,17 +309,39 @@ export default function Clientes() {
               <TableHeader>
                 <TableRow className="bg-accent/50">
                   <TableHead>Cliente</TableHead>
-                  <TableHead>WhatsApp</TableHead>
-                  <TableHead className="text-center">Máx. Almuerzos</TableHead>
+                  <TableHead>Tipo de Cliente</TableHead>
+                  <TableHead>Cédula</TableHead>
+                  <TableHead>Teléfono</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClients.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                        <p className="text-muted-foreground animate-pulse">Cargando clientes...</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : error ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-destructive">
+                      <div className="flex flex-col items-center gap-2">
+                        <p className="font-semibold">Ocurrió un error</p>
+                        <p className="text-sm">{error}</p>
+                        <Button variant="outline" size="sm" onClick={fetchClientes} className="mt-2">
+                          Reintentar
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredClients.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      No se encontraron clientes
+                      {searchTerm ? 'No se encontraron clientes con esa búsqueda' : 'No hay clientes registrados'}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -199,19 +352,27 @@ export default function Clientes() {
                           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent">
                             <User className="h-4 w-4 text-foreground" />
                           </div>
-                          <span className="font-medium text-foreground">{client.nombre}</span>
+                          <span className="font-medium text-foreground">
+                            {client.nombre} {client.apellido}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="bg-primary/5">
+                          {client.tipo_nombre || 'Frecuente'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5 text-foreground">
+                          <IdCard className="h-3.5 w-3.5 text-muted-foreground" />
+                          {client.cedula}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5 text-foreground">
                           <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                          {client.whatsapp}
+                          {client.telefono || '—'}
                         </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className="font-mono">
-                          {client.maxAlmuerzos}
-                        </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant={client.activo ? 'default' : 'secondary'}>
@@ -222,7 +383,7 @@ export default function Clientes() {
                         <div className="flex justify-end items-center gap-2">
                           <Switch
                             checked={client.activo}
-                            onCheckedChange={() => handleToggleActive(client.id)}
+                            onCheckedChange={() => handleToggleClick(client)}
                           />
                           <Button
                             variant="ghost"
@@ -247,49 +408,74 @@ export default function Clientes() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-foreground">
-              {editingClient ? 'Editar Cliente' : 'Nuevo Cliente Frecuente'}
+              {editingClient ? 'Editar Cliente' : 'Nuevo Cliente'}
             </DialogTitle>
             <DialogDescription>
               {editingClient
                 ? 'Modifique los datos del cliente'
-                : 'Registre un nuevo cliente frecuente'}
+                : 'Registre un nuevo cliente'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="nombre">Nombre Completo</Label>
+              <Label htmlFor="cedula">Cédula *</Label>
               <Input
-                id="nombre"
-                value={formData.nombre}
-                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                placeholder="Nombre del cliente"
+                id="cedula"
+                value={formData.cedula}
+                onChange={(e) => setFormData({ ...formData, cedula: e.target.value })}
+                placeholder="Ej: 1712345678"
+                maxLength={13}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp">Número de WhatsApp</Label>
-              <Input
-                id="whatsapp"
-                value={formData.whatsapp}
-                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                placeholder="+593 999999999"
-              />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="nombre">Nombre *</Label>
+                <Input
+                  id="nombre"
+                  value={formData.nombre}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                  placeholder="Nombre del cliente"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="apellido">Apellido *</Label>
+                <Input
+                  id="apellido"
+                  value={formData.apellido}
+                  onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
+                  placeholder="Apellido del cliente"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="maxAlmuerzos">Máximo de Almuerzos por Día</Label>
-              <Input
-                id="maxAlmuerzos"
-                type="number"
-                min={1}
-                max={10}
-                value={formData.maxAlmuerzos}
-                onChange={(e) =>
-                  setFormData({ ...formData, maxAlmuerzos: parseInt(e.target.value) || 1 })
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                Cantidad máxima de almuerzos que puede solicitar por día
-              </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="telefono">Teléfono</Label>
+                <Input
+                  id="telefono"
+                  value={formData.telefono}
+                  onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+                  placeholder="+593 999999999"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tipo">Tipo de Cliente</Label>
+                <Select
+                  value={String(formData.id_tipo_cliente)}
+                  onValueChange={(value) => setFormData({ ...formData, id_tipo_cliente: parseInt(value) })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione un tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clientTypes.map((tipo) => (
+                      <SelectItem key={tipo.id_tipo_cliente} value={String(tipo.id_tipo_cliente)}>
+                        {tipo.nombre_tipo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
@@ -297,12 +483,38 @@ export default function Clientes() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave}>
-              {editingClient ? 'Guardar Cambios' : 'Registrar Cliente'}
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving
+                ? (editingClient ? 'Guardando...' : 'Registrando...')
+                : (editingClient ? 'Guardar Cambios' : 'Registrar Cliente')
+              }
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmación para desactivar */}
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Desactivar cliente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Está seguro que desea desactivar a <strong>{clientToToggle?.nombre} {clientToToggle?.apellido}</strong>?
+              <br /><br />
+              El cliente quedará inactivo hasta que se reactive manualmente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setClientToToggle(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => clientToToggle && confirmToggle(clientToToggle.id, false)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Sí, desactivar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

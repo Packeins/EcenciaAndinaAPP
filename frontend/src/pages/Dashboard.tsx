@@ -31,7 +31,7 @@ const metrics = [
     description: 'Empresas con convenio',
   },
   {
-    title: 'Clientes Frecuentes',
+    title: 'Clientes',
     value: mockDashboardMetrics.clientesFrecuentes,
     icon: Users,
     description: 'Clientes registrados',

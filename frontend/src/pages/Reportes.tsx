@@ -99,7 +99,7 @@ export default function Reportes() {
                   <SelectItem value="all">Todos los convenios</SelectItem>
                   {mockConvenios.filter(c => c.activo).map((convenio) => (
                     <SelectItem key={convenio.id} value={convenio.id}>
-                      {convenio.nombre}
+                      {convenio.nombre_empresa}
                     </SelectItem>
                   ))}
                 </SelectContent>
