@@ -109,7 +109,12 @@ export default function Convenios() {
 
   // --- GUARDAR (CREAR O ACTUALIZAR) ---
   const handleSave = async () => {
-    if (!formData.ruc || !formData.nombre_empresa || !formData.fecha_inicio || !formData.fecha_caducidad) {
+    if (
+      !formData.ruc ||
+      !formData.nombre_empresa ||
+      !formData.fecha_inicio ||
+      !formData.fecha_caducidad
+    ) {
       toast.error('RUC, empresa, fecha inicio y fecha caducidad son requeridos');
       return;
     }
@@ -118,10 +123,13 @@ export default function Convenios() {
     try {
       if (editingConvenio) {
         // ACTUALIZAR
-        const response = await apiFetch(`http://localhost:3001/api/convenios/${editingConvenio.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(formData),
-        });
+        const response = await apiFetch(
+          `http://localhost:3001/api/convenios/${editingConvenio.id}`,
+          {
+            method: 'PUT',
+            body: JSON.stringify(formData),
+          },
+        );
         const data = await response.json();
 
         if (response.ok) {
@@ -178,11 +186,8 @@ export default function Convenios() {
         const data = await response.json();
         setConvenios(convenios.map((c) => (c.id === id ? data : c)));
 
-        const nombre = convenios.find(c => c.id === id)?.nombre_empresa || 'El convenio';
-        toast.success(newState
-          ? `${nombre} ha sido activado.`
-          : `${nombre} ha sido desactivado.`
-        );
+        const nombre = convenios.find((c) => c.id === id)?.nombre_empresa || 'El convenio';
+        toast.success(newState ? `${nombre} ha sido activado.` : `${nombre} ha sido desactivado.`);
       } else {
         const data = await response.json();
         toast.error(data.error || 'Error al cambiar el estado');
@@ -216,9 +221,7 @@ export default function Convenios() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Convenios</h1>
-          <p className="text-muted-foreground">
-            Gestión de convenios empresariales
-          </p>
+          <p className="text-muted-foreground">Gestión de convenios empresariales</p>
         </div>
         <Button onClick={handleOpenNew} className="gap-2">
           <Plus className="h-4 w-4" />
@@ -228,12 +231,12 @@ export default function Convenios() {
 
       {/* Convenios Grid */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
+        <div className="flex flex-col items-center justify-center gap-3 py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-muted-foreground animate-pulse">Cargando convenios...</p>
+          <p className="animate-pulse text-muted-foreground">Cargando convenios...</p>
         </div>
       ) : error ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
+        <div className="flex flex-col items-center justify-center gap-3 py-16">
           <p className="font-semibold text-destructive">Ocurrió un error</p>
           <p className="text-sm text-muted-foreground">{error}</p>
           <Button variant="outline" size="sm" onClick={fetchConvenios} className="mt-2">
@@ -241,7 +244,7 @@ export default function Convenios() {
           </Button>
         </div>
       ) : convenios.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
           <Building2 className="h-12 w-12 opacity-30" />
           <p>No hay convenios registrados.</p>
           <Button variant="outline" size="sm" onClick={handleOpenNew}>
@@ -259,7 +262,9 @@ export default function Convenios() {
                       <Building2 className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg text-foreground">{convenio.nombre_empresa}</CardTitle>
+                      <CardTitle className="text-lg text-foreground">
+                        {convenio.nombre_empresa}
+                      </CardTitle>
                       <CardDescription>RUC: {convenio.ruc}</CardDescription>
                     </div>
                   </div>
@@ -291,7 +296,7 @@ export default function Convenios() {
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <CalendarDays className="h-4 w-4" />
-                    <span className="text-foreground text-xs">
+                    <span className="text-xs text-foreground">
                       {formatDate(convenio.fecha_inicio)} — {formatDate(convenio.fecha_caducidad)}
                     </span>
                   </div>
@@ -304,11 +309,13 @@ export default function Convenios() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-muted-foreground">Consumo Mensual</p>
-                    <p className="font-semibold text-foreground">${convenio.consumoMensual.toFixed(2)}</p>
+                    <p className="font-semibold text-foreground">
+                      ${convenio.consumoMensual.toFixed(2)}
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-border">
+                <div className="flex items-center justify-between border-t border-border pt-2">
                   <div className="flex items-center gap-2">
                     <Switch
                       checked={convenio.activo}
@@ -319,7 +326,7 @@ export default function Convenios() {
                     </span>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => handleEdit(convenio)}>
-                    <Pencil className="h-4 w-4 mr-1" />
+                    <Pencil className="mr-1 h-4 w-4" />
                     Editar
                   </Button>
                 </div>
@@ -423,9 +430,12 @@ export default function Convenios() {
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving
-                ? (editingConvenio ? 'Guardando...' : 'Creando...')
-                : (editingConvenio ? 'Guardar Cambios' : 'Crear Convenio')
-              }
+                ? editingConvenio
+                  ? 'Guardando...'
+                  : 'Creando...'
+                : editingConvenio
+                  ? 'Guardar Cambios'
+                  : 'Crear Convenio'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -437,13 +447,17 @@ export default function Convenios() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Desactivar convenio?</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Está seguro que desea desactivar el convenio con <strong>{convenioToToggle?.nombre_empresa}</strong>?
-              <br /><br />
+              ¿Está seguro que desea desactivar el convenio con{' '}
+              <strong>{convenioToToggle?.nombre_empresa}</strong>?
+              <br />
+              <br />
               El convenio quedará inactivo hasta que se reactive manualmente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setConvenioToToggle(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setConvenioToToggle(null)}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => convenioToToggle && confirmToggle(convenioToToggle.id, false)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

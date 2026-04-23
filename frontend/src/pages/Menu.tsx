@@ -48,7 +48,7 @@ export default function Menu() {
           {tipos.map((t) => (
             <div key={t.value} className="grid gap-3 md:grid-cols-[120px_1fr_160px] md:items-end">
               <div>
-                <Label className="text-xs text-muted-foreground capitalize">{t.value}</Label>
+                <Label className="text-xs capitalize text-muted-foreground">{t.value}</Label>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Nombre</Label>
@@ -90,7 +90,7 @@ export default function Menu() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-destructive shrink-0"
+                className="shrink-0 text-destructive"
                 onClick={() => menuStore.removePlato(i)}
                 disabled={platos.length <= 1}
                 title="Eliminar"
@@ -99,14 +99,14 @@ export default function Menu() {
               </Button>
             </div>
           ))}
-          <div className="flex items-center gap-2 pt-2 border-t border-border">
+          <div className="flex items-center gap-2 border-t border-border pt-2">
             <Input
               placeholder="Nuevo plato fuerte..."
               value={newPlato}
               onChange={(e) => setNewPlato(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddPlato()}
             />
-            <Button onClick={handleAddPlato} className="gap-1 shrink-0">
+            <Button onClick={handleAddPlato} className="shrink-0 gap-1">
               <Plus className="h-4 w-4" />
               Agregar
             </Button>
@@ -130,7 +130,7 @@ export default function Menu() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-destructive shrink-0"
+                className="shrink-0 text-destructive"
                 onClick={() => menuStore.removeSopa(i)}
                 disabled={sopas.length <= 1}
                 title="Eliminar"
@@ -139,14 +139,14 @@ export default function Menu() {
               </Button>
             </div>
           ))}
-          <div className="flex items-center gap-2 pt-2 border-t border-border">
+          <div className="flex items-center gap-2 border-t border-border pt-2">
             <Input
               placeholder="Nueva sopa..."
               value={newSopa}
               onChange={(e) => setNewSopa(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddSopa()}
             />
-            <Button onClick={handleAddSopa} className="gap-1 shrink-0">
+            <Button onClick={handleAddSopa} className="shrink-0 gap-1">
               <Plus className="h-4 w-4" />
               Agregar
             </Button>

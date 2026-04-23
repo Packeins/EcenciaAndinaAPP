@@ -16,8 +16,8 @@ export function PasswordRequirements({ password }: PasswordRequirementsProps) {
   if (!password) return null;
 
   return (
-    <div className="mt-2 space-y-1 rounded-md border p-3 bg-muted/20">
-      <p className="text-sm font-medium mb-2">La contraseña debe contener:</p>
+    <div className="mt-2 space-y-1 rounded-md border bg-muted/20 p-3">
+      <p className="mb-2 text-sm font-medium">La contraseña debe contener:</p>
       {reqs.map((req, i) => (
         <div key={i} className="flex items-center gap-2 text-xs">
           {req.isValid ? (
@@ -25,7 +25,11 @@ export function PasswordRequirements({ password }: PasswordRequirementsProps) {
           ) : (
             <X className="h-4 w-4 text-destructive" />
           )}
-          <span className={req.isValid ? 'text-muted-foreground line-through' : 'text-destructive font-medium'}>
+          <span
+            className={
+              req.isValid ? 'text-muted-foreground line-through' : 'font-medium text-destructive'
+            }
+          >
             {req.label}
           </span>
         </div>

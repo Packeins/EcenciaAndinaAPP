@@ -3,8 +3,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { mockConvenios } from '@/data/mockData';
 import { FileDown, Calendar, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -16,12 +29,12 @@ interface ReportRow {
 }
 
 const mockReportData: ReportRow[] = [
-  { colaborador: 'Carlos Pérez', cantidadAlmuerzos: 22, totalConsumo: 88.00 },
-  { colaborador: 'Ana Martínez', cantidadAlmuerzos: 20, totalConsumo: 80.00 },
-  { colaborador: 'Luis Fernández', cantidadAlmuerzos: 18, totalConsumo: 72.00 },
-  { colaborador: 'Patricia Ruiz', cantidadAlmuerzos: 21, totalConsumo: 84.00 },
-  { colaborador: 'Diana López', cantidadAlmuerzos: 19, totalConsumo: 76.00 },
-  { colaborador: 'Eduardo Castro', cantidadAlmuerzos: 17, totalConsumo: 68.00 },
+  { colaborador: 'Carlos Pérez', cantidadAlmuerzos: 22, totalConsumo: 88.0 },
+  { colaborador: 'Ana Martínez', cantidadAlmuerzos: 20, totalConsumo: 80.0 },
+  { colaborador: 'Luis Fernández', cantidadAlmuerzos: 18, totalConsumo: 72.0 },
+  { colaborador: 'Patricia Ruiz', cantidadAlmuerzos: 21, totalConsumo: 84.0 },
+  { colaborador: 'Diana López', cantidadAlmuerzos: 19, totalConsumo: 76.0 },
+  { colaborador: 'Eduardo Castro', cantidadAlmuerzos: 17, totalConsumo: 68.0 },
 ];
 
 export default function Reportes() {
@@ -49,9 +62,7 @@ export default function Reportes() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Reportes</h1>
-        <p className="text-muted-foreground">
-          Generación de reportes de consumo
-        </p>
+        <p className="text-muted-foreground">Generación de reportes de consumo</p>
       </div>
 
       {/* Filters */}
@@ -80,11 +91,7 @@ export default function Reportes() {
                 <Calendar className="h-4 w-4" />
                 Fecha Fin
               </Label>
-              <Input
-                type="date"
-                value={fechaFin}
-                onChange={(e) => setFechaFin(e.target.value)}
-              />
+              <Input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
@@ -97,11 +104,13 @@ export default function Reportes() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los convenios</SelectItem>
-                  {mockConvenios.filter(c => c.activo).map((convenio) => (
-                    <SelectItem key={convenio.id} value={convenio.id}>
-                      {convenio.nombre_empresa}
-                    </SelectItem>
-                  ))}
+                  {mockConvenios
+                    .filter((c) => c.activo)
+                    .map((convenio) => (
+                      <SelectItem key={convenio.id} value={convenio.id}>
+                        {convenio.nombre_empresa}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -169,7 +178,9 @@ export default function Reportes() {
                   <TableRow className="bg-accent/30 font-bold">
                     <TableCell className="text-foreground">TOTAL</TableCell>
                     <TableCell className="text-center text-foreground">{totalAlmuerzos}</TableCell>
-                    <TableCell className="text-right text-foreground">${totalConsumo.toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-foreground">
+                      ${totalConsumo.toFixed(2)}
+                    </TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

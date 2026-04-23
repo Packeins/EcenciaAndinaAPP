@@ -7,39 +7,37 @@ router.use(authMiddleware);
 
 // CREAR UNA NUEVA ORDEN
 router.post('/', async (req, res) => {
-    const { id_cliente, id_estado, id_origen, canal_origen, detalles } = req.body;
-    
-    // detalles es un array: [{ id_producto: 1, cantidad: 2, precio_aplicado: 3.50 }]
+  const { id_cliente, id_estado, id_origen, canal_origen, detalles } = req.body;
 
-    try {
-        // 1. Crear la cabecera de la Orden
-        const { data: orden, error: errorOrden } = await supabase
-            .from('ordenes')
-            .insert([{ id_cliente, id_estado, id_origen, canal_origen, created_by: req.user.id }])
-            .select()
-            .single();
+  // detalles es un array: [{ id_producto: 1, cantidad: 2, precio_aplicado: 3.50 }]
 
-        if (errorOrden) throw errorOrden;
+  try {
+    // 1. Crear la cabecera de la Orden
+    const { data: orden, error: errorOrden } = await supabase
+      .from('ordenes')
+      .insert([{ id_cliente, id_estado, id_origen, canal_origen, created_by: req.user.id }])
+      .select()
+      .single();
 
-        // 2. Insertar los detalles de la Orden
-        const detallesAInsertar = detalles.map(det => ({
-            id_orden: orden.id_orden,
-            id_producto: det.id_producto,
-            cantidad: det.cantidad,
-            precio_aplicado: det.precio_aplicado,
-            updated_by: req.user.id
-        }));
+    if (errorOrden) throw errorOrden;
 
-        const { error: errorDetalles } = await supabase
-            .from('detalle_orden')
-            .insert(detallesAInsertar);
+    // 2. Insertar los detalles de la Orden
+    const detallesAInsertar = detalles.map((det) => ({
+      id_orden: orden.id_orden,
+      id_producto: det.id_producto,
+      cantidad: det.cantidad,
+      precio_aplicado: det.precio_aplicado,
+      updated_by: req.user.id,
+    }));
 
-        if (errorDetalles) throw errorDetalles;
+    const { error: errorDetalles } = await supabase.from('detalle_orden').insert(detallesAInsertar);
 
-        res.status(201).json({ mensaje: "Orden registrada exitosamente", orden });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    if (errorDetalles) throw errorDetalles;
+
+    res.status(201).json({ mensaje: 'Orden registrada exitosamente', orden });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 module.exports = router;

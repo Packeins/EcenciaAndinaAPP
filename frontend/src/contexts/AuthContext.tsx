@@ -3,7 +3,10 @@ import { User, UserRole } from '@/types';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<{ success: boolean; rol: UserRole; message?: string }>;
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<{ success: boolean; rol: UserRole; message?: string }>;
   logout: () => void;
   updateProfile: (updatedData: Partial<User>) => void;
   isAuthenticated: boolean;
@@ -19,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (savedUser) {
       try {
         setUser(JSON.parse(savedUser));
-      } catch(e) {}
+      } catch (e) {}
     }
 
     // Escuchar cambios en localStorage (para cerrar sesión en todas las pestañas)
@@ -32,20 +35,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (e.key === 'user' && e.newValue !== null) {
         try {
           setUser(JSON.parse(e.newValue));
-        } catch(err) {}
+        } catch (err) {}
       }
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; rol: UserRole; message?: string }> => {
+  const login = async (
+    email: string,
+    password: string,
+  ): Promise<{ success: boolean; rol: UserRole; message?: string }> => {
     try {
       const response = await fetch('http://localhost:3001/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identificador: email, password })
+        body: JSON.stringify({ identificador: email, password }),
       });
       const data = await response.json();
       if (response.ok && data.token) {

@@ -1,4 +1,13 @@
-import { Order, Client, Convenio, Product, User, DashboardMetrics, ChartData, TipoAlmuerzo } from '@/types';
+import {
+  Order,
+  Client,
+  Convenio,
+  Product,
+  User,
+  DashboardMetrics,
+  ChartData,
+  TipoAlmuerzo,
+} from '@/types';
 
 export const mockUsers: User[] = [
   { id: '1', nombre: 'Admin Usuario', email: 'admin@ecencia.com', rol: 'administrador' },
@@ -35,7 +44,7 @@ export const mockConvenios: Convenio[] = [
     fecha_caducidad: '2026-12-31',
     activo: true,
     totalColaboradores: 4,
-    consumoMensual: 1250.00,
+    consumoMensual: 1250.0,
   },
   {
     id: '2',
@@ -48,7 +57,7 @@ export const mockConvenios: Convenio[] = [
     fecha_caducidad: '2026-06-30',
     activo: true,
     totalColaboradores: 3,
-    consumoMensual: 890.50,
+    consumoMensual: 890.5,
   },
   {
     id: '3',
@@ -66,35 +75,77 @@ export const mockConvenios: Convenio[] = [
 ];
 
 export const mockClients: Client[] = [
-  { id: '1', cedula: '1712345601', nombre: 'Carlos', apellido: 'Pérez', telefono: '+593987654321', activo: true },
-  { id: '2', cedula: '1712345602', nombre: 'Ana', apellido: 'Martínez', telefono: '+593987654322', activo: true },
-  { id: '3', cedula: '1712345603', nombre: 'Diana', apellido: 'López', telefono: '+593912345678', activo: true },
-  { id: '4', cedula: '1712345604', nombre: 'Juan', apellido: 'Rodríguez', telefono: '+593998765432', activo: true },
-  { id: '5', cedula: '1712345605', nombre: 'Laura', apellido: 'Gómez', telefono: '+593976543210', activo: true },
-  { id: '6', cedula: '1712345606', nombre: 'Pedro', apellido: 'Morales', telefono: '+593965432109', activo: false },
+  {
+    id: '1',
+    cedula: '1712345601',
+    nombre: 'Carlos',
+    apellido: 'Pérez',
+    telefono: '+593987654321',
+    activo: true,
+  },
+  {
+    id: '2',
+    cedula: '1712345602',
+    nombre: 'Ana',
+    apellido: 'Martínez',
+    telefono: '+593987654322',
+    activo: true,
+  },
+  {
+    id: '3',
+    cedula: '1712345603',
+    nombre: 'Diana',
+    apellido: 'López',
+    telefono: '+593912345678',
+    activo: true,
+  },
+  {
+    id: '4',
+    cedula: '1712345604',
+    nombre: 'Juan',
+    apellido: 'Rodríguez',
+    telefono: '+593998765432',
+    activo: true,
+  },
+  {
+    id: '5',
+    cedula: '1712345605',
+    nombre: 'Laura',
+    apellido: 'Gómez',
+    telefono: '+593976543210',
+    activo: true,
+  },
+  {
+    id: '6',
+    cedula: '1712345606',
+    nombre: 'Pedro',
+    apellido: 'Morales',
+    telefono: '+593965432109',
+    activo: false,
+  },
 ];
 
 export const mockProducts: Product[] = [
-  { id: '1', nombre: 'Bebida Gaseosa', precio: 1.50, categoria: 'Bebidas' },
-  { id: '2', nombre: 'Jugo Natural', precio: 2.00, categoria: 'Bebidas' },
-  { id: '3', nombre: 'Postre del Día', precio: 2.50, categoria: 'Postres' },
+  { id: '1', nombre: 'Bebida Gaseosa', precio: 1.5, categoria: 'Bebidas' },
+  { id: '2', nombre: 'Jugo Natural', precio: 2.0, categoria: 'Bebidas' },
+  { id: '3', nombre: 'Postre del Día', precio: 2.5, categoria: 'Postres' },
   { id: '4', nombre: 'Café Americano', precio: 1.25, categoria: 'Bebidas' },
   { id: '5', nombre: 'Snack Saludable', precio: 1.75, categoria: 'Snacks' },
-  { id: '6', nombre: 'Agua Mineral', precio: 1.00, categoria: 'Bebidas' },
+  { id: '6', nombre: 'Agua Mineral', precio: 1.0, categoria: 'Bebidas' },
   { id: '7', nombre: 'Té Helado', precio: 1.75, categoria: 'Bebidas' },
   { id: '8', nombre: 'Limonada Natural', precio: 2.25, categoria: 'Bebidas' },
-  { id: '9', nombre: 'Capuchino', precio: 2.00, categoria: 'Bebidas' },
+  { id: '9', nombre: 'Capuchino', precio: 2.0, categoria: 'Bebidas' },
   { id: '10', nombre: 'Flan de Caramelo', precio: 2.25, categoria: 'Postres' },
   { id: '11', nombre: 'Helado Artesanal', precio: 2.75, categoria: 'Postres' },
-  { id: '12', nombre: 'Brownie con Helado', precio: 3.50, categoria: 'Postres' },
-  { id: '13', nombre: 'Fruta Fresca', precio: 1.50, categoria: 'Postres' },
-  { id: '14', nombre: 'Papas Fritas', precio: 2.00, categoria: 'Snacks' },
-  { id: '15', nombre: 'Nachos con Queso', precio: 3.00, categoria: 'Snacks' },
+  { id: '12', nombre: 'Brownie con Helado', precio: 3.5, categoria: 'Postres' },
+  { id: '13', nombre: 'Fruta Fresca', precio: 1.5, categoria: 'Postres' },
+  { id: '14', nombre: 'Papas Fritas', precio: 2.0, categoria: 'Snacks' },
+  { id: '15', nombre: 'Nachos con Queso', precio: 3.0, categoria: 'Snacks' },
   { id: '16', nombre: 'Empanada de Carne', precio: 1.75, categoria: 'Snacks' },
-  { id: '17', nombre: 'Porción Extra de Arroz', precio: 1.00, categoria: 'Extras' },
+  { id: '17', nombre: 'Porción Extra de Arroz', precio: 1.0, categoria: 'Extras' },
   { id: '18', nombre: 'Porción Extra de Ensalada', precio: 1.25, categoria: 'Extras' },
-  { id: '19', nombre: 'Pan de Ajo', precio: 1.50, categoria: 'Extras' },
-  { id: '20', nombre: 'Salsa Adicional', precio: 0.50, categoria: 'Extras' },
+  { id: '19', nombre: 'Pan de Ajo', precio: 1.5, categoria: 'Extras' },
+  { id: '20', nombre: 'Salsa Adicional', precio: 0.5, categoria: 'Extras' },
 ];
 
 export const mockOrders: Order[] = [
@@ -111,7 +162,7 @@ export const mockOrders: Order[] = [
     sopa: 'Crema de Zapallo',
     cantidad: 1,
     estado: 'reservado',
-    productos: [{ productoId: '2', nombre: 'Jugo Natural', cantidad: 1, precio: 2.00 }],
+    productos: [{ productoId: '2', nombre: 'Jugo Natural', cantidad: 1, precio: 2.0 }],
     observaciones: 'Sin cebolla',
     fecha: '2026-01-19',
     hora: '12:30',
@@ -165,8 +216,8 @@ export const mockOrders: Order[] = [
     cantidad: 1,
     estado: 'reservado',
     productos: [
-      { productoId: '1', nombre: 'Bebida Gaseosa', cantidad: 1, precio: 1.50 },
-      { productoId: '3', nombre: 'Postre del Día', cantidad: 1, precio: 2.50 },
+      { productoId: '1', nombre: 'Bebida Gaseosa', cantidad: 1, precio: 1.5 },
+      { productoId: '3', nombre: 'Postre del Día', cantidad: 1, precio: 2.5 },
     ],
     observaciones: '',
     fecha: '2026-01-19',

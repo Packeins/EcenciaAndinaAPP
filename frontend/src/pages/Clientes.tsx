@@ -24,7 +24,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Plus, Pencil, User, Phone, Search, IdCard, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
@@ -57,7 +64,9 @@ export default function Clientes() {
     id_tipo_cliente: 1,
   });
 
-  const [clientTypes, setClientTypes] = useState<{ id_tipo_cliente: number; nombre_tipo: string }[]>([]);
+  const [clientTypes, setClientTypes] = useState<
+    { id_tipo_cliente: number; nombre_tipo: string }[]
+  >([]);
 
   // --- CARGAR CLIENTES DESDE EL BACKEND ---
   useEffect(() => {
@@ -104,7 +113,7 @@ export default function Clientes() {
     (c) =>
       `${c.nombre} ${c.apellido}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.cedula.includes(searchTerm) ||
-      c.telefono.includes(searchTerm)
+      c.telefono.includes(searchTerm),
   );
 
   // --- FORMULARIO: ABRIR NUEVO ---
@@ -115,7 +124,7 @@ export default function Clientes() {
       nombre: '',
       apellido: '',
       telefono: '',
-      id_tipo_cliente: clientTypes[0]?.id_tipo_cliente || 1
+      id_tipo_cliente: clientTypes[0]?.id_tipo_cliente || 1,
     });
     setDialogOpen(true);
   };
@@ -202,11 +211,12 @@ export default function Clientes() {
         const data = await response.json();
         setClients(clients.map((c) => (c.id === id ? data : c)));
 
-        const nombre = clients.find(c => c.id === id);
+        const nombre = clients.find((c) => c.id === id);
         const nombreCompleto = nombre ? `${nombre.nombre} ${nombre.apellido}` : 'El cliente';
-        toast.success(newState
-          ? `${nombreCompleto} ha sido activado.`
-          : `${nombreCompleto} ha sido desactivado.`
+        toast.success(
+          newState
+            ? `${nombreCompleto} ha sido activado.`
+            : `${nombreCompleto} ha sido desactivado.`,
         );
       } else {
         const data = await response.json();
@@ -229,9 +239,7 @@ export default function Clientes() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
-          <p className="text-muted-foreground">
-            Gestión de clientes registrados
-          </p>
+          <p className="text-muted-foreground">Gestión de clientes registrados</p>
         </div>
         <Button onClick={handleOpenNew} className="gap-2">
           <Plus className="h-4 w-4" />
@@ -288,9 +296,7 @@ export default function Clientes() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-foreground">Lista de Clientes</CardTitle>
-              <CardDescription>
-                Administre los clientes y su información
-              </CardDescription>
+              <CardDescription>Administre los clientes y su información</CardDescription>
             </div>
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -319,20 +325,25 @@ export default function Clientes() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={5} className="py-8 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                        <p className="text-muted-foreground animate-pulse">Cargando clientes...</p>
+                        <p className="animate-pulse text-muted-foreground">Cargando clientes...</p>
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : error ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-destructive">
+                    <TableCell colSpan={5} className="py-8 text-center text-destructive">
                       <div className="flex flex-col items-center gap-2">
                         <p className="font-semibold">Ocurrió un error</p>
                         <p className="text-sm">{error}</p>
-                        <Button variant="outline" size="sm" onClick={fetchClientes} className="mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={fetchClientes}
+                          className="mt-2"
+                        >
                           Reintentar
                         </Button>
                       </div>
@@ -340,8 +351,10 @@ export default function Clientes() {
                   </TableRow>
                 ) : filteredClients.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      {searchTerm ? 'No se encontraron clientes con esa búsqueda' : 'No hay clientes registrados'}
+                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                      {searchTerm
+                        ? 'No se encontraron clientes con esa búsqueda'
+                        : 'No hay clientes registrados'}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -380,16 +393,12 @@ export default function Clientes() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex justify-end items-center gap-2">
+                        <div className="flex items-center justify-end gap-2">
                           <Switch
                             checked={client.activo}
                             onCheckedChange={() => handleToggleClick(client)}
                           />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(client)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(client)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
                         </div>
@@ -411,9 +420,7 @@ export default function Clientes() {
               {editingClient ? 'Editar Cliente' : 'Nuevo Cliente'}
             </DialogTitle>
             <DialogDescription>
-              {editingClient
-                ? 'Modifique los datos del cliente'
-                : 'Registre un nuevo cliente'}
+              {editingClient ? 'Modifique los datos del cliente' : 'Registre un nuevo cliente'}
             </DialogDescription>
           </DialogHeader>
 
@@ -462,7 +469,9 @@ export default function Clientes() {
                 <Label htmlFor="tipo">Tipo de Cliente</Label>
                 <Select
                   value={String(formData.id_tipo_cliente)}
-                  onValueChange={(value) => setFormData({ ...formData, id_tipo_cliente: parseInt(value) })}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, id_tipo_cliente: parseInt(value) })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccione un tipo" />
@@ -485,9 +494,12 @@ export default function Clientes() {
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving
-                ? (editingClient ? 'Guardando...' : 'Registrando...')
-                : (editingClient ? 'Guardar Cambios' : 'Registrar Cliente')
-              }
+                ? editingClient
+                  ? 'Guardando...'
+                  : 'Registrando...'
+                : editingClient
+                  ? 'Guardar Cambios'
+                  : 'Registrar Cliente'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -499,8 +511,13 @@ export default function Clientes() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Desactivar cliente?</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Está seguro que desea desactivar a <strong>{clientToToggle?.nombre} {clientToToggle?.apellido}</strong>?
-              <br /><br />
+              ¿Está seguro que desea desactivar a{' '}
+              <strong>
+                {clientToToggle?.nombre} {clientToToggle?.apellido}
+              </strong>
+              ?
+              <br />
+              <br />
               El cliente quedará inactivo hasta que se reactive manualmente.
             </AlertDialogDescription>
           </AlertDialogHeader>

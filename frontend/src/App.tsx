@@ -1,20 +1,20 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Pedidos from "./pages/Pedidos";
-import Reportes from "./pages/Reportes";
-import Convenios from "./pages/Convenios";
-import Clientes from "./pages/Clientes";
-import Usuarios from "./pages/Usuarios";
-import Menu from "./pages/Menu";
-import NotFound from "./pages/NotFound";
-import Perfil from "./pages/Perfil";
+import { Toaster } from '@/components/ui/toaster';
+import { Toaster as Sonner } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Pedidos from './pages/Pedidos';
+import Reportes from './pages/Reportes';
+import Convenios from './pages/Convenios';
+import Clientes from './pages/Clientes';
+import Usuarios from './pages/Usuarios';
+import Menu from './pages/Menu';
+import NotFound from './pages/NotFound';
+import Perfil from './pages/Perfil';
 
 const queryClient = new QueryClient();
 

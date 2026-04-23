@@ -78,12 +78,18 @@ export default function Usuarios() {
     correo: '',
     nombre_usuario: '',
     password: '',
-    id_rol: '2' // Operativo por defecto
+    id_rol: '2', // Operativo por defecto
   });
   const [isSavingCreate, setIsSavingCreate] = useState(false);
 
   const isPasswordValid = (pwd: string) => {
-    return pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /[0-9]/.test(pwd) && /[^A-Za-z0-9]/.test(pwd);
+    return (
+      pwd.length >= 8 &&
+      /[A-Z]/.test(pwd) &&
+      /[a-z]/.test(pwd) &&
+      /[0-9]/.test(pwd) &&
+      /[^A-Za-z0-9]/.test(pwd)
+    );
   };
 
   useEffect(() => {
@@ -125,7 +131,7 @@ export default function Usuarios() {
     try {
       const response = await apiFetch('http://localhost:3001/api/empleados', {
         method: 'POST',
-        body: JSON.stringify(createFormData)
+        body: JSON.stringify(createFormData),
       });
 
       const data = await response.json();
@@ -140,7 +146,7 @@ export default function Usuarios() {
           correo: '',
           nombre_usuario: '',
           password: '',
-          id_rol: '2'
+          id_rol: '2',
         });
       } else {
         toast.error(data.error || 'Error al crear el empleado');
@@ -161,13 +167,13 @@ export default function Usuarios() {
     try {
       const response = await apiFetch(`http://localhost:3001/api/empleados/${selectedUser.id}`, {
         method: 'PUT',
-        body: JSON.stringify(editFormData)
+        body: JSON.stringify(editFormData),
       });
 
       const data = await response.json();
       if (response.ok) {
         toast.success('Empleado actualizado correctamente');
-        setUsers(users.map(u => u.id === selectedUser.id ? data : u));
+        setUsers(users.map((u) => (u.id === selectedUser.id ? data : u)));
         setIsEditOpen(false);
       } else {
         toast.error(data.error || 'Error al actualizar el empleado');
@@ -180,11 +186,10 @@ export default function Usuarios() {
     }
   };
 
-
   const handleResetPassword = async (id: string, nombre: string) => {
     try {
       const response = await apiFetch(`http://localhost:3001/api/empleados/${id}/reset-password`, {
-        method: 'POST'
+        method: 'POST',
       });
 
       const data = await response.json();
@@ -217,10 +222,13 @@ export default function Usuarios() {
 
     setIsSavingPassword(true);
     try {
-      const response = await apiFetch(`http://localhost:3001/api/empleados/${selectedUser.id}/password`, {
-        method: 'PUT',
-        body: JSON.stringify({ password: passwordData.password })
-      });
+      const response = await apiFetch(
+        `http://localhost:3001/api/empleados/${selectedUser.id}/password`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ password: passwordData.password }),
+        },
+      );
 
       const data = await response.json();
       if (response.ok) {
@@ -253,16 +261,18 @@ export default function Usuarios() {
     try {
       const response = await apiFetch(`http://localhost:3001/api/empleados/${id}/estado`, {
         method: 'PUT',
-        body: JSON.stringify({ esta_activo: newState })
+        body: JSON.stringify({ esta_activo: newState }),
       });
 
       if (response.ok) {
-        setUsers(users.map(u => u.id === id ? { ...u, esta_activo: newState } : u));
+        setUsers(users.map((u) => (u.id === id ? { ...u, esta_activo: newState } : u)));
 
-        const nombreEmpleado = users.find(u => u.id === id)?.nombre || 'El empleado';
+        const nombreEmpleado = users.find((u) => u.id === id)?.nombre || 'El empleado';
 
         if (newState) {
-          toast.success(`Acceso concedido: ${nombreEmpleado} puede ingresar al sistema nuevamente.`);
+          toast.success(
+            `Acceso concedido: ${nombreEmpleado} puede ingresar al sistema nuevamente.`,
+          );
         } else {
           toast.success(`Acceso revocado: ${nombreEmpleado} ya no podrá iniciar sesión.`);
         }
@@ -319,7 +329,9 @@ export default function Usuarios() {
                   <Input
                     id="nombre"
                     value={createFormData.nombre}
-                    onChange={(e) => setCreateFormData({ ...createFormData, nombre: e.target.value })}
+                    onChange={(e) =>
+                      setCreateFormData({ ...createFormData, nombre: e.target.value })
+                    }
                     required
                     placeholder="Ej. Juan"
                   />
@@ -329,7 +341,9 @@ export default function Usuarios() {
                   <Input
                     id="apellido"
                     value={createFormData.apellido}
-                    onChange={(e) => setCreateFormData({ ...createFormData, apellido: e.target.value })}
+                    onChange={(e) =>
+                      setCreateFormData({ ...createFormData, apellido: e.target.value })
+                    }
                     required
                     placeholder="Ej. Pérez"
                   />
@@ -351,7 +365,9 @@ export default function Usuarios() {
                 <Input
                   id="usuario"
                   value={createFormData.nombre_usuario}
-                  onChange={(e) => setCreateFormData({ ...createFormData, nombre_usuario: e.target.value })}
+                  onChange={(e) =>
+                    setCreateFormData({ ...createFormData, nombre_usuario: e.target.value })
+                  }
                   required
                   placeholder="jperez"
                 />
@@ -362,7 +378,9 @@ export default function Usuarios() {
                   id="password"
                   type="password"
                   value={createFormData.password}
-                  onChange={(e) => setCreateFormData({ ...createFormData, password: e.target.value })}
+                  onChange={(e) =>
+                    setCreateFormData({ ...createFormData, password: e.target.value })
+                  }
                   required
                 />
                 <PasswordRequirements password={createFormData.password} />
@@ -380,11 +398,14 @@ export default function Usuarios() {
                   <option value="1">Administrativo</option>
                 </select>
               </div>
-              <div className="pt-4 flex justify-end gap-2">
+              <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={isSavingCreate || !isPasswordValid(createFormData.password)}>
+                <Button
+                  type="submit"
+                  disabled={isSavingCreate || !isPasswordValid(createFormData.password)}
+                >
                   {isSavingCreate ? 'Creando...' : 'Crear Empleado'}
                 </Button>
               </div>
@@ -412,16 +433,16 @@ export default function Usuarios() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={6} className="py-8 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                      <p className="text-muted-foreground animate-pulse">Cargando datos...</p>
+                      <p className="animate-pulse text-muted-foreground">Cargando datos...</p>
                     </div>
                   </TableCell>
                 </TableRow>
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-destructive">
+                  <TableCell colSpan={6} className="py-8 text-center text-destructive">
                     <div className="flex flex-col items-center gap-2">
                       <p className="font-semibold">Ocurrió un error</p>
                       <p className="text-sm">{error}</p>
@@ -433,14 +454,16 @@ export default function Usuarios() {
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No se encontraron empleados.
                   </TableCell>
                 </TableRow>
               ) : (
                 users.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.nombre} {user.apellido}</TableCell>
+                    <TableCell className="font-medium">
+                      {user.nombre} {user.apellido}
+                    </TableCell>
                     <TableCell>{user.nombre_usuario}</TableCell>
                     <TableCell>{user.correo}</TableCell>
                     <TableCell>
@@ -480,7 +503,7 @@ export default function Usuarios() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-5 w-5" />
@@ -513,7 +536,9 @@ export default function Usuarios() {
                   <Input
                     id="edit-usuario"
                     value={editFormData.nombre_usuario}
-                    onChange={(e) => setEditFormData({ ...editFormData, nombre_usuario: e.target.value })}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, nombre_usuario: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -535,10 +560,12 @@ export default function Usuarios() {
                     <option value="1">Administrativo</option>
                   </select>
                   {currentUser?.id === selectedUser.id && (
-                    <p className="text-xs text-muted-foreground mt-1">No puedes cambiar tu propio rol.</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      No puedes cambiar tu propio rol.
+                    </p>
                   )}
                 </div>
-                <div className="pt-2 flex justify-end gap-2">
+                <div className="flex justify-end gap-2 pt-2">
                   <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
                     Cancelar
                   </Button>
@@ -548,14 +575,16 @@ export default function Usuarios() {
                 </div>
               </form>
 
-              <div className="border-t pt-4 space-y-4">
-                <h3 className="font-semibold text-sm">Seguridad y Contraseña</h3>
-                <div className="rounded-lg border p-4 bg-accent/50 space-y-3">
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="text-sm font-semibold">Seguridad y Contraseña</h3>
+                <div className="space-y-3 rounded-lg border bg-accent/50 p-4">
                   <div className="flex items-center gap-3">
                     <KeyRound className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <p className="font-medium text-sm">Restablecer contraseña por correo</p>
-                      <p className="text-xs text-muted-foreground">Enviar un correo con el enlace seguro</p>
+                      <p className="text-sm font-medium">Restablecer contraseña por correo</p>
+                      <p className="text-xs text-muted-foreground">
+                        Enviar un correo con el enlace seguro
+                      </p>
                     </div>
                   </div>
                   <Button
@@ -567,12 +596,14 @@ export default function Usuarios() {
                   </Button>
                 </div>
 
-                <div className="rounded-lg border p-4 bg-accent/50 space-y-3">
+                <div className="space-y-3 rounded-lg border bg-accent/50 p-4">
                   <div className="flex items-center gap-3">
                     <UserCog className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <p className="font-medium text-sm">Restablecer contraseña en el sistema</p>
-                      <p className="text-xs text-muted-foreground">Cambiar ahora la contraseña del empleado</p>
+                      <p className="text-sm font-medium">Restablecer contraseña en el sistema</p>
+                      <p className="text-xs text-muted-foreground">
+                        Cambiar ahora la contraseña del empleado
+                      </p>
                     </div>
                   </div>
                   {!isChangingPassword ? (
@@ -584,14 +615,16 @@ export default function Usuarios() {
                       Cambiar contraseña ahora
                     </Button>
                   ) : (
-                    <div className="space-y-4 pt-2 border-t border-border/50">
+                    <div className="space-y-4 border-t border-border/50 pt-2">
                       <div className="space-y-2">
                         <Label htmlFor="new-password">Nueva Contraseña</Label>
                         <Input
                           id="new-password"
                           type="password"
                           value={passwordData.password}
-                          onChange={(e) => setPasswordData({ ...passwordData, password: e.target.value })}
+                          onChange={(e) =>
+                            setPasswordData({ ...passwordData, password: e.target.value })
+                          }
                           placeholder="Escriba la nueva contraseña"
                         />
                         <PasswordRequirements password={passwordData.password} />
@@ -602,12 +635,18 @@ export default function Usuarios() {
                           id="confirm-new-password"
                           type="password"
                           value={passwordData.confirmPassword}
-                          onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                          onChange={(e) =>
+                            setPasswordData({ ...passwordData, confirmPassword: e.target.value })
+                          }
                           placeholder="Repita la nueva contraseña"
                         />
                         {passwordData.confirmPassword && (
-                          <p className={`text-xs mt-1.5 flex items-center gap-1 font-medium ${passwordData.password === passwordData.confirmPassword ? 'text-green-500' : 'text-destructive'}`}>
-                            {passwordData.password === passwordData.confirmPassword ? '✓ Las contraseñas coinciden' : '✗ Las contraseñas no coinciden'}
+                          <p
+                            className={`mt-1.5 flex items-center gap-1 text-xs font-medium ${passwordData.password === passwordData.confirmPassword ? 'text-green-500' : 'text-destructive'}`}
+                          >
+                            {passwordData.password === passwordData.confirmPassword
+                              ? '✓ Las contraseñas coinciden'
+                              : '✗ Las contraseñas no coinciden'}
                           </p>
                         )}
                       </div>
@@ -627,7 +666,12 @@ export default function Usuarios() {
                           type="button"
                           variant="secondary"
                           className="w-full"
-                          disabled={isSavingPassword || !passwordData.password || passwordData.password !== passwordData.confirmPassword || !isPasswordValid(passwordData.password)}
+                          disabled={
+                            isSavingPassword ||
+                            !passwordData.password ||
+                            passwordData.password !== passwordData.confirmPassword ||
+                            !isPasswordValid(passwordData.password)
+                          }
                           onClick={handleForcePasswordChange}
                         >
                           {isSavingPassword ? 'Actualizando...' : 'Actualizar'}
@@ -648,9 +692,15 @@ export default function Usuarios() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Desactivar empleado?</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Está seguro que desea desactivar a <strong>{userToToggle?.nombre} {userToToggle?.apellido}</strong>?
-              <br /><br />
-              Este empleado ya no podrá iniciar sesión en el sistema hasta que vuelva a ser activado.
+              ¿Está seguro que desea desactivar a{' '}
+              <strong>
+                {userToToggle?.nombre} {userToToggle?.apellido}
+              </strong>
+              ?
+              <br />
+              <br />
+              Este empleado ya no podrá iniciar sesión en el sistema hasta que vuelva a ser
+              activado.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

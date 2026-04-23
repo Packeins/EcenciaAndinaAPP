@@ -15,14 +15,10 @@ export function ClientTypeBadge({ type }: ClientTypeBadgeProps) {
         'gap-1',
         type === 'convenio'
           ? 'border-primary/50 text-primary'
-          : 'border-secondary text-secondary-foreground'
+          : 'border-secondary text-secondary-foreground',
       )}
     >
-      {type === 'convenio' ? (
-        <Building2 className="h-3 w-3" />
-      ) : (
-        <User className="h-3 w-3" />
-      )}
+      {type === 'convenio' ? <Building2 className="h-3 w-3" /> : <User className="h-3 w-3" />}
       {type === 'convenio' ? 'Convenio' : 'Cliente'}
     </Badge>
   );

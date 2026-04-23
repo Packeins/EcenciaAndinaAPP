@@ -20,22 +20,22 @@ app.get('/', (req, res) => {
 // 2. Ruta para verificar la base de datos (Supabase)
 app.get('/api/check-db', async (req, res) => {
   try {
-    // Si tienes una tabla Empleados en Supabase, esto funcionará. 
+    // Si tienes una tabla Empleados en Supabase, esto funcionará.
     // Caso contrario, al menos verificamos que el cliente no se caiga.
     const { data, error } = await supabase.from('empleados').select('*').limit(1);
-    
+
     if (error) {
       throw error;
     }
 
     res.json({
-      mensaje: "Backend y Supabase conectados exitosamente",
-      datos_prueba: data
+      mensaje: 'Backend y Supabase conectados exitosamente',
+      datos_prueba: data,
     });
   } catch (error) {
-    res.status(500).json({ 
-      error: "Error conectando a Supabase", 
-      detalle: error.message 
+    res.status(500).json({
+      error: 'Error conectando a Supabase',
+      detalle: error.message,
     });
   }
 });

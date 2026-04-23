@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { ClientType, Order } from '@/types';
-import { mockClients, mockConvenios, buildAlmuerzoLabel, platosFuertes, sopas } from '@/data/mockData';
+import {
+  mockClients,
+  mockConvenios,
+  buildAlmuerzoLabel,
+  platosFuertes,
+  sopas,
+} from '@/data/mockData';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +18,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { OrderFormFields, OrderFormState } from './OrderFormFields';
 import { toast } from 'sonner';
@@ -62,8 +74,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
   }, [open]);
 
   const selectedClient = mockClients.find((c) => c.id === clienteId);
-  const effectiveTipoCliente: ClientType =
-    clientMode === 'existing' ? 'cliente' : tipoCliente;
+  const effectiveTipoCliente: ClientType = clientMode === 'existing' ? 'cliente' : tipoCliente;
   const showProductos = effectiveTipoCliente === 'convenio';
 
   const handleCreate = () => {
@@ -197,10 +208,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Tipo</Label>
-                  <Select
-                    value={tipoCliente}
-                    onValueChange={(v: ClientType) => setTipoCliente(v)}
-                  >
+                  <Select value={tipoCliente} onValueChange={(v: ClientType) => setTipoCliente(v)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>

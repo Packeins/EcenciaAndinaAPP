@@ -6,7 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Minus, Trash2, Search } from 'lucide-react';
 
@@ -35,7 +41,7 @@ export function OrderFormFields({ state, onChange, showProductos }: OrderFormFie
     const q = search.trim().toLowerCase();
     if (!q) return mockProducts;
     return mockProducts.filter(
-      (p) => p.nombre.toLowerCase().includes(q) || p.categoria.toLowerCase().includes(q)
+      (p) => p.nombre.toLowerCase().includes(q) || p.categoria.toLowerCase().includes(q),
     );
   }, [search]);
 
@@ -46,7 +52,7 @@ export function OrderFormFields({ state, onChange, showProductos }: OrderFormFie
     if (existing) {
       update({
         productos: state.productos.map((p) =>
-          p.productoId === product.id ? { ...p, cantidad: p.cantidad + 1 } : p
+          p.productoId === product.id ? { ...p, cantidad: p.cantidad + 1 } : p,
         ),
       });
     } else {
@@ -189,7 +195,7 @@ export function OrderFormFields({ state, onChange, showProductos }: OrderFormFie
                       variant="outline"
                       size="sm"
                       onClick={() => handleAddProduct(product.id)}
-                      className="gap-1 shrink-0"
+                      className="shrink-0 gap-1"
                     >
                       <Plus className="h-3 w-3" />
                       Agregar

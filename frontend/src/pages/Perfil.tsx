@@ -14,7 +14,7 @@ export default function Perfil() {
   const [isSavingData, setIsSavingData] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     nombre: '',
     apellido: '',
@@ -28,7 +28,13 @@ export default function Perfil() {
   });
 
   const isPasswordValid = (pwd: string) => {
-    return pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /[0-9]/.test(pwd) && /[^A-Za-z0-9]/.test(pwd);
+    return (
+      pwd.length >= 8 &&
+      /[A-Z]/.test(pwd) &&
+      /[a-z]/.test(pwd) &&
+      /[0-9]/.test(pwd) &&
+      /[^A-Za-z0-9]/.test(pwd)
+    );
   };
 
   useEffect(() => {
@@ -52,15 +58,15 @@ export default function Perfil() {
     try {
       const response = await apiFetch('http://localhost:3001/api/empleados/perfil', {
         method: 'PUT',
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         updateProfile({
           nombre: formData.nombre,
           apellido: formData.apellido,
-          nombre_usuario: formData.nombre_usuario
+          nombre_usuario: formData.nombre_usuario,
         });
         toast.success(data.mensaje || 'Perfil actualizado exitosamente');
       } else {
@@ -110,12 +116,12 @@ export default function Perfil() {
     try {
       const response = await apiFetch('http://localhost:3001/api/empleados/perfil/password', {
         method: 'PUT',
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.password 
-        })
+          newPassword: passwordData.password,
+        }),
       });
-      
+
       if (response.ok) {
         toast.success('Contraseña actualizada correctamente');
         setPasswordData({ currentPassword: '', password: '', confirmPassword: '' });
@@ -132,10 +138,12 @@ export default function Perfil() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="mx-auto max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Mi Perfil</h1>
-        <p className="text-muted-foreground">Administre su información personal y credenciales de acceso</p>
+        <p className="text-muted-foreground">
+          Administre su información personal y credenciales de acceso
+        </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -178,13 +186,11 @@ export default function Perfil() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Correo Electrónico</Label>
-                <Input
-                  id="email"
-                  value={user?.email || ''}
-                  disabled
-                  className="bg-muted"
-                />
-                <p className="text-xs text-muted-foreground">El correo electrónico no puede modificarse ya que es su identificador único en el sistema.</p>
+                <Input id="email" value={user?.email || ''} disabled className="bg-muted" />
+                <p className="text-xs text-muted-foreground">
+                  El correo electrónico no puede modificarse ya que es su identificador único en el
+                  sistema.
+                </p>
               </div>
               <Button type="submit" className="w-full" disabled={isSavingData}>
                 {isSavingData ? 'Guardando...' : 'Guardar Cambios'}
@@ -204,9 +210,9 @@ export default function Perfil() {
           </CardHeader>
           <CardContent>
             {!isChangingPassword ? (
-              <Button 
-                variant="outline" 
-                className="w-full" 
+              <Button
+                variant="outline"
+                className="w-full"
                 onClick={() => setIsChangingPassword(true)}
               >
                 Cambiar Contraseña
@@ -219,7 +225,9 @@ export default function Perfil() {
                     id="currentPassword"
                     type="password"
                     value={passwordData.currentPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                    onChange={(e) =>
+                      setPasswordData({ ...passwordData, currentPassword: e.target.value })
+                    }
                     placeholder="Escriba su contraseña actual"
                     required
                   />
@@ -241,20 +249,26 @@ export default function Perfil() {
                     id="confirmPassword"
                     type="password"
                     value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                    onChange={(e) =>
+                      setPasswordData({ ...passwordData, confirmPassword: e.target.value })
+                    }
                     placeholder="Repita su nueva contraseña"
                   />
                   {passwordData.confirmPassword && (
-                    <p className={`text-xs mt-1.5 flex items-center gap-1 font-medium ${passwordData.password === passwordData.confirmPassword ? 'text-green-500' : 'text-destructive'}`}>
-                      {passwordData.password === passwordData.confirmPassword ? '✓ Las contraseñas coinciden' : '✗ Las contraseñas no coinciden'}
+                    <p
+                      className={`mt-1.5 flex items-center gap-1 text-xs font-medium ${passwordData.password === passwordData.confirmPassword ? 'text-green-500' : 'text-destructive'}`}
+                    >
+                      {passwordData.password === passwordData.confirmPassword
+                        ? '✓ Las contraseñas coinciden'
+                        : '✗ Las contraseñas no coinciden'}
                     </p>
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    className="w-full" 
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
                     onClick={() => {
                       setIsChangingPassword(false);
                       setPasswordData({ currentPassword: '', password: '', confirmPassword: '' });
@@ -262,11 +276,16 @@ export default function Perfil() {
                   >
                     Cancelar
                   </Button>
-                  <Button 
-                    type="submit" 
-                    variant="secondary" 
-                    className="w-full" 
-                    disabled={isSavingPassword || !passwordData.password || passwordData.password !== passwordData.confirmPassword || !isPasswordValid(passwordData.password)}
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    className="w-full"
+                    disabled={
+                      isSavingPassword ||
+                      !passwordData.password ||
+                      passwordData.password !== passwordData.confirmPassword ||
+                      !isPasswordValid(passwordData.password)
+                    }
                   >
                     {isSavingPassword ? 'Actualizando...' : 'Actualizar'}
                   </Button>

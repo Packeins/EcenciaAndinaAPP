@@ -1,6 +1,10 @@
 import { useSyncExternalStore } from 'react';
 import { TipoAlmuerzo } from '@/types';
-import { tiposAlmuerzo as initialTipos, platosFuertes as initialPlatos, sopas as initialSopas } from '@/data/mockData';
+import {
+  tiposAlmuerzo as initialTipos,
+  platosFuertes as initialPlatos,
+  sopas as initialSopas,
+} from '@/data/mockData';
 
 export interface TipoAlmuerzoItem {
   value: TipoAlmuerzo;

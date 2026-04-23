@@ -21,7 +21,7 @@ export default function Login() {
       navigate(user.rol === 'administrador' ? '/dashboard' : '/pedidos');
     }
   }, [user, navigate]);
-  
+
   // Recovery mode state
   const [recoveryToken, setRecoveryToken] = useState<string | null>(null);
   const [recoveryUserName, setRecoveryUserName] = useState<string | null>(null);
@@ -30,7 +30,13 @@ export default function Login() {
   const [isResetting, setIsResetting] = useState(false);
 
   const isPasswordValid = (pwd: string) => {
-    return pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /[0-9]/.test(pwd) && /[^A-Za-z0-9]/.test(pwd);
+    return (
+      pwd.length >= 8 &&
+      /[A-Z]/.test(pwd) &&
+      /[a-z]/.test(pwd) &&
+      /[0-9]/.test(pwd) &&
+      /[^A-Za-z0-9]/.test(pwd)
+    );
   };
 
   useEffect(() => {
@@ -42,18 +48,18 @@ export default function Login() {
       const token = params.get('access_token');
       if (token) {
         setRecoveryToken(token);
-        
+
         // Obtener el nombre del usuario con este token
         fetch('http://localhost:3001/api/empleados/perfil', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         })
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.nombre) {
-            setRecoveryUserName(data.nombre);
-          }
-        })
-        .catch(err => console.error('Error fetching user profile:', err));
+          .then((res) => res.json())
+          .then((data) => {
+            if (data && data.nombre) {
+              setRecoveryUserName(data.nombre);
+            }
+          })
+          .catch((err) => console.error('Error fetching user profile:', err));
       }
     }
   }, []);
@@ -76,7 +82,7 @@ export default function Login() {
 
   const handleResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Password strength validation
     if (newPassword.length < 8) {
       toast.error('La contraseña debe tener al menos 8 caracteres');
@@ -98,7 +104,7 @@ export default function Login() {
       toast.error('La contraseña debe incluir al menos un carácter especial');
       return;
     }
-    
+
     if (newPassword !== confirmPassword) {
       toast.error('Las contraseñas no coinciden');
       return;
@@ -110,9 +116,9 @@ export default function Login() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${recoveryToken}`
+          Authorization: `Bearer ${recoveryToken}`,
         },
-        body: JSON.stringify({ password: newPassword })
+        body: JSON.stringify({ password: newPassword }),
       });
 
       if (response.ok) {
@@ -136,7 +142,7 @@ export default function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-3 text-center pb-6">
+        <CardHeader className="space-y-3 pb-6 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-sm">
             <UtensilsCrossed className="h-8 w-8 text-primary-foreground" />
           </div>
@@ -144,9 +150,11 @@ export default function Login() {
             <CardTitle className="text-2xl font-bold tracking-tight text-primary">
               {recoveryToken ? 'Restablecer Contraseña' : 'ECencia Andina'}
             </CardTitle>
-            <CardDescription className="text-sm mt-1">
-              {recoveryToken 
-                ? (recoveryUserName ? `Bienvenido ${recoveryUserName}, a continuación podrá restablecer su contraseña` : 'Por favor ingrese su nueva contraseña') 
+            <CardDescription className="mt-1 text-sm">
+              {recoveryToken
+                ? recoveryUserName
+                  ? `Bienvenido ${recoveryUserName}, a continuación podrá restablecer su contraseña`
+                  : 'Por favor ingrese su nueva contraseña'
                 : 'Sistema de Gestión de Almuerzos'}
             </CardDescription>
           </div>
@@ -175,16 +183,25 @@ export default function Login() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
                 {confirmPassword && (
-                  <p className={`text-xs mt-1.5 flex items-center gap-1 font-medium ${newPassword === confirmPassword ? 'text-green-500' : 'text-destructive'}`}>
-                    {newPassword === confirmPassword ? '✓ Las contraseñas coinciden' : '✗ Las contraseñas no coinciden'}
+                  <p
+                    className={`mt-1.5 flex items-center gap-1 text-xs font-medium ${newPassword === confirmPassword ? 'text-green-500' : 'text-destructive'}`}
+                  >
+                    {newPassword === confirmPassword
+                      ? '✓ Las contraseñas coinciden'
+                      : '✗ Las contraseñas no coinciden'}
                   </p>
                 )}
               </div>
-              <Button 
-                type="submit" 
-                className="w-full" 
-                size="lg" 
-                disabled={isResetting || !newPassword || newPassword !== confirmPassword || !isPasswordValid(newPassword)}
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={
+                  isResetting ||
+                  !newPassword ||
+                  newPassword !== confirmPassword ||
+                  !isPasswordValid(newPassword)
+                }
               >
                 {isResetting ? 'Actualizando...' : 'Guardar y Continuar'}
               </Button>
@@ -226,8 +243,8 @@ export default function Login() {
             </form>
           )}
           <p className="mt-4 text-center text-xs text-muted-foreground">
-            {recoveryToken 
-              ? 'Asegúrese de usar una contraseña segura' 
+            {recoveryToken
+              ? 'Asegúrese de usar una contraseña segura'
               : 'Ingrese sus credenciales oficiales para acceder al sistema.'}
           </p>
         </CardContent>

@@ -1,7 +1,19 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { mockDashboardMetrics, mockConsumosPorDia, mockConsumosPorConvenio } from '@/data/mockData';
 import { UtensilsCrossed, CalendarDays, Building2, Users } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from 'recharts';
 
 const CHART_COLORS = [
   'hsl(var(--chart-1))',
@@ -51,9 +63,7 @@ export default function Dashboard() {
         {metrics.map((metric) => (
           <Card key={metric.title} className="border-border">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-foreground">
-                {metric.title}
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-foreground">{metric.title}</CardTitle>
               <metric.icon className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
@@ -113,7 +123,10 @@ export default function Dashboard() {
                     dataKey="value"
                   >
                     {mockConsumosPorConvenio.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={CHART_COLORS[index % CHART_COLORS.length]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip

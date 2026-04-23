@@ -4,8 +4,21 @@ import { Order, OrderState } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
 import { ClientTypeBadge } from '@/components/orders/ClientTypeBadge';
 import { EditOrderDialog } from '@/components/orders/EditOrderDialog';
@@ -46,7 +59,7 @@ export default function Pedidos() {
 
   const handleMarkConsumed = (orderId: string) => {
     setOrders(
-      orders.map((o) => (o.id === orderId ? { ...o, estado: 'consumido' as OrderState } : o))
+      orders.map((o) => (o.id === orderId ? { ...o, estado: 'consumido' as OrderState } : o)),
     );
     toast.success('Pedido marcado como consumido');
   };
@@ -58,16 +71,12 @@ export default function Pedidos() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Pedidos</h1>
-          <p className="text-muted-foreground">
-            Gestión de pedidos recibidos por WhatsApp
-          </p>
+          <p className="text-muted-foreground">Gestión de pedidos recibidos por WhatsApp</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2">
             <MessageCircle className="h-5 w-5 text-primary" />
-            <span className="font-medium text-foreground">
-              {reservedCount} pedidos pendientes
-            </span>
+            <span className="font-medium text-foreground">{reservedCount} pedidos pendientes</span>
           </div>
           <Button onClick={() => setNewOrderOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
@@ -79,14 +88,12 @@ export default function Pedidos() {
       <Card className="border-border">
         <CardHeader>
           <CardTitle className="text-foreground">Lista de Pedidos</CardTitle>
-          <CardDescription>
-            Filtre y gestione los pedidos del día
-          </CardDescription>
+          <CardDescription>Filtre y gestione los pedidos del día</CardDescription>
         </CardHeader>
         <CardContent>
           {/* Filters */}
           <div className="mb-6 flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
+            <div className="min-w-[200px] flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -136,7 +143,7 @@ export default function Pedidos() {
               <TableBody>
                 {filteredOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                       No se encontraron pedidos
                     </TableCell>
                   </TableRow>
@@ -182,7 +189,7 @@ export default function Pedidos() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleMarkConsumed(order.id)}
-                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100"
+                              className="text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700"
                               title="Marcar como consumido"
                             >
                               <CheckCircle className="h-4 w-4" />

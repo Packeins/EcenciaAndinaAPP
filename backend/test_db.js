@@ -7,11 +7,9 @@ const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function testQuery() {
-    try {
-        console.log('Testing query on Empleados...');
-        const { data, error } = await supabase
-            .from('empleados')
-            .select(`
+  try {
+    console.log('Testing query on Empleados...');
+    const { data, error } = await supabase.from('empleados').select(`
                 id,
                 nombre,
                 apellido,
@@ -22,16 +20,16 @@ async function testQuery() {
                 roles (nombre_rol)
             `);
 
-        if (error) {
-            console.error('Error in query:', error);
-            return;
-        }
-
-        console.log('Data found:', data.length, 'records');
-        console.log('First record:', data[0]);
-    } catch (err) {
-        console.error('Exception:', err);
+    if (error) {
+      console.error('Error in query:', error);
+      return;
     }
+
+    console.log('Data found:', data.length, 'records');
+    console.log('First record:', data[0]);
+  } catch (err) {
+    console.error('Exception:', err);
+  }
 }
 
 testQuery();
