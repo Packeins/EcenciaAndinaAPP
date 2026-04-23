@@ -1,5 +1,5 @@
 export const apiFetch = async (url: string, options: RequestInit = {}) => {
-  let token = localStorage.getItem('token');
+  const token = localStorage.getItem('token');
 
   const getHeaders = (t: string | null) => ({
     'Content-Type': 'application/json',
@@ -7,7 +7,7 @@ export const apiFetch = async (url: string, options: RequestInit = {}) => {
     ...options.headers,
   });
 
-  let response = await fetch(url, { ...options, headers: getHeaders(token) });
+  const response = await fetch(url, { ...options, headers: getHeaders(token) });
 
   if (response.status === 401) {
     const refreshToken = localStorage.getItem('refresh_token');

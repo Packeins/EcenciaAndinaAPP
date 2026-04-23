@@ -203,7 +203,7 @@ router.get('/perfil', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const { data, error } = await supabase
       .from('empleados')
-      .select(`*, roles (nombre_rol)`)
+      .select('*, roles (nombre_rol)')
       .eq('id', userId)
       .single();
 
@@ -225,7 +225,7 @@ router.put('/perfil', authMiddleware, async (req, res) => {
       .from('empleados')
       .update({ nombre, apellido, nombre_usuario })
       .eq('id', userId)
-      .select(`*, roles (nombre_rol)`)
+      .select('*, roles (nombre_rol)')
       .single();
 
     if (error) throw error;

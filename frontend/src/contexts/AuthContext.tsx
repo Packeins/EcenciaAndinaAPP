@@ -22,7 +22,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (savedUser) {
       try {
         setUser(JSON.parse(savedUser));
-      } catch (e) {}
+      } catch (e) {
+        console.error('Error parsing user:', e);
+      }
     }
 
     // Escuchar cambios en localStorage (para cerrar sesión en todas las pestañas)
@@ -35,7 +37,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (e.key === 'user' && e.newValue !== null) {
         try {
           setUser(JSON.parse(e.newValue));
-        } catch (err) {}
+        } catch (err) {
+          console.error('Error parsing storage data:', err);
+        }
       }
     };
 
