@@ -28,6 +28,10 @@ export interface Client {
   activo: boolean;
   id_tipo_cliente?: number;
   tipo_nombre?: string;
+  convenio?: {
+    id: string;
+    nombre: string;
+  } | null;
 }
 
 export interface Convenio {
@@ -40,6 +44,7 @@ export interface Convenio {
   fecha_inicio: string;
   fecha_caducidad: string;
   activo: boolean;
+  cupo_maximo: number;
   totalColaboradores: number;
   consumoMensual: number;
 }

@@ -1,125 +1,145 @@
 const express = require('express');
 const router = express.Router();
-const supabase = require('../config/supabase');
+const { supabase, getAdminClient } = require('../config/supabase');
 const authMiddleware = require('../middlewares/authMiddleware');
 
-// Ruta para el LOGIN (Aún disponible por si necesitas probar desde Postman)
+// Ruta para el LOGIN
 router.post('/login', async (req, res) => {
-  // Aceptamos 'identificador' que puede ser correo o nombre de usuario
   const { identificador, password } = req.body;
-
-  // Por retrocompatibilidad, si envían 'email' lo usamos como identificador
   const loginId = identificador || req.body.email;
 
   if (!loginId || !password) {
-    return res
-      .status(400)
-      .json({ mensaje: 'El identificador (correo/usuario) y contraseña son obligatorios' });
+    return res.status(400).json({ mensaje: 'Identificador y contraseña obligatorios' });
   }
 
   try {
     let emailToLogin = loginId;
+    const adminClient = getAdminClient();
 
-    // Si no tiene '@', asumimos que es un nombre de usuario y buscamos su correo en la BD
+    // Si es nombre de usuario, buscar correo
     if (!loginId.includes('@')) {
-      const { data: empleado, error: empError } = await supabase
+      const { data: empleado, error: empError } = await adminClient
         .from('empleados')
         .select('correo')
         .eq('nombre_usuario', loginId)
         .single();
 
-      if (empError || !empleado || !empleado.correo) {
-        return res
-          .status(401)
-          .json({ mensaje: 'Usuario no encontrado o no tiene correo asociado' });
+      if (empError || !empleado) {
+        console.error('Login: Usuario no encontrado en tabla empleados:', loginId, empError?.message);
+        return res.status(401).json({ mensaje: 'Usuario no encontrado' });
       }
       emailToLogin = empleado.correo;
     }
 
-    // Iniciamos sesión en Supabase Auth con el correo resuelto
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: emailToLogin,
       password,
     });
 
-    if (error || !data.user) {
+    if (authError || !authData.user) {
+      console.error('Login: Error en Supabase Auth:', emailToLogin, authError?.message);
       return res.status(401).json({ mensaje: 'Credenciales inválidas' });
     }
 
-    // Fetch employee details and role
-    const { data: empleadoData } = await supabase
-      .from('empleados')
-      .select(
-        `
-                *,
-                roles (nombre_rol)
-            `
-      )
-      .eq('id', data.user.id)
-      .single();
+    const uid = authData.user.id;
+    const uemail = authData.user.email;
 
-    // Verificar si el empleado fue desactivado
-    if (empleadoData && empleadoData.esta_activo === false) {
-      return res
-        .status(403)
-        .json({ mensaje: 'Su cuenta ha sido desactivada. Comuníquese con el administrador.' });
+    let { data: empleadosData, error: dbError } = await adminClient
+      .from('empleados')
+      .select('*, roles(nombre_rol)')
+      .eq('id', uid)
+      .limit(1);
+
+    if (dbError) {
+      console.error('Login: Error buscando datos del empleado:', dbError.message);
     }
 
+    // Fallback por correo si falla el ID
+    if (!dbError && (!empleadosData || empleadosData.length === 0)) {
+      const { data: fallbackData, error: fbError } = await adminClient
+        .from('empleados')
+        .select('*, roles(nombre_rol)')
+        .eq('correo', uemail)
+        .limit(1);
+      
+      if (fbError) {
+        console.error('Login: Error en fallback por correo:', fbError.message);
+      }
+
+      if (fallbackData && fallbackData.length > 0) {
+        empleadosData = fallbackData;
+      }
+    }
+
+    const empleadoData = empleadosData && empleadosData.length > 0 ? empleadosData[0] : null;
+
+    if (!empleadoData) {
+      console.error('Login: Empleado no encontrado tras auth exitosa:', uid, uemail);
+      return res.status(404).json({ mensaje: 'Empleado no registrado en la base de datos' });
+    }
+
+    if (empleadoData.esta_activo === false) {
+      return res.status(403).json({ mensaje: 'Su cuenta ha sido desactivada.' });
+    }
+
+    // Mapeo de Rol para el Frontend
     let rolFrontend = 'caja';
-    if (empleadoData?.roles?.nombre_rol?.toLowerCase() === 'administrativo') {
+    const rawRoles = empleadoData.roles || empleadoData.Roles;
+    const roleName = (Array.isArray(rawRoles) ? rawRoles[0]?.nombre_rol : rawRoles?.nombre_rol) || '';
+    const normRole = roleName.toLowerCase().trim();
+
+    if (['administrativo', 'administrador', 'admin'].includes(normRole)) {
       rolFrontend = 'administrador';
+    }
+
+    // ACTUALIZAR METADATOS EN SUPABASE AUTH (para que el middleware no tenga que consultar la DB)
+    // Solo lo hacemos si hay cambios o para asegurar sincronización
+    if (authData.user.user_metadata?.rol !== rolFrontend || authData.user.user_metadata?.esta_activo !== empleadoData.esta_activo) {
+      await adminClient.auth.admin.updateUserById(uid, {
+        user_metadata: { 
+          ...authData.user.user_metadata,
+          rol: rolFrontend,
+          esta_activo: empleadoData.esta_activo
+        }
+      });
     }
 
     res.json({
       mensaje: '¡Acceso concedido!',
-      token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
+      token: authData.session.access_token,
+      refresh_token: authData.session.refresh_token,
       user: {
-        id: empleadoData?.id || data.user.id,
-        email: data.user.email,
-        nombre: empleadoData?.nombre || '',
-        apellido: empleadoData?.apellido || '',
-        nombre_usuario: empleadoData?.nombre_usuario || '',
+        id: empleadoData.id,
+        email: uemail,
+        nombre: empleadoData.nombre,
+        apellido: empleadoData.apellido,
+        nombre_usuario: empleadoData.nombre_usuario,
         rol: rolFrontend,
       },
     });
   } catch (error) {
+    console.error('Login: Error fatal:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor', detalle: error.message });
   }
 });
 
-// NUEVA RUTA: Ruta Protegida de Prueba
-// Solo puedes acceder si envías un Token válido en las cabeceras (Headers)
 router.get('/datos-privados', authMiddleware, async (req, res) => {
-  // Si el código llega hasta aquí, significa que el middleware lo dejó pasar
   res.json({
-    mensaje: '¡BINGO! Has accedido a una zona segura del backend.',
+    mensaje: 'Zona segura',
     usuario_autenticado: req.user.email,
     id_usuario: req.user.id,
   });
 });
 
-// NUEVA RUTA: Refrescar Token
 router.post('/refresh', async (req, res) => {
   const { refresh_token } = req.body;
-
-  if (!refresh_token) {
-    return res.status(400).json({ error: 'Refresh token es obligatorio' });
-  }
-
+  if (!refresh_token) return res.status(400).json({ error: 'Token obligatorio' });
   try {
     const { data, error } = await supabase.auth.refreshSession({ refresh_token });
-
-    if (error || !data.session) {
-      return res.status(401).json({ error: 'Sesión expirada o token de refresco inválido' });
-    }
-
-    res.json({
-      token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Error refrescando la sesión' });
+    if (error) return res.status(401).json({ error: 'Sesión expirada' });
+    res.json({ token: data.session.access_token, refresh_token: data.session.refresh_token });
+  } catch {
+    res.status(500).json({ error: 'Error interno' });
   }
 });
 

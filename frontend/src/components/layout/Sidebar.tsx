@@ -13,6 +13,7 @@ import {
   UserCog,
   ChefHat,
   KeyRound,
+  Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -67,6 +68,12 @@ const navItems: NavItem[] = [
     label: 'Empleados',
     path: '/usuarios',
     icon: <UserCog className="h-5 w-5" />,
+    roles: ['administrador'],
+  },
+  {
+    label: 'Productos',
+    path: '/productos',
+    icon: <Package className="h-5 w-5" />,
     roles: ['administrador'],
   },
 ];

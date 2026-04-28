@@ -1,13 +1,13 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
-// Usamos SERVICE_ROLE_KEY en el backend para tener permisos administrativos y validar tokens correctamente
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('❌ Faltan credenciales de Supabase en el archivo .env');
 }
 
+// Cliente Singleton (puede verse afectado por sesiones de auth)
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: false,
@@ -15,4 +15,21 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   },
 });
 
-module.exports = supabase;
+/**
+ * Retorna un cliente fresco con la llave de servicio.
+ * Útil para operaciones de servidor que deben saltarse el RLS 
+ * y no verse afectadas por el estado de autenticación del cliente singleton.
+ */
+const getAdminClient = () => {
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+};
+
+module.exports = {
+  supabase,
+  getAdminClient
+};

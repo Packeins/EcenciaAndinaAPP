@@ -1,19 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const supabase = require('../config/supabase');
+const { getAdminClient } = require('../config/supabase');
 const authMiddleware = require('../middlewares/authMiddleware');
+const roleMiddleware = require('../middlewares/roleMiddleware');
 
 router.use(authMiddleware);
+router.use(roleMiddleware(['administrador', 'caja']));
 
 // CREAR UNA NUEVA ORDEN
 router.post('/', async (req, res) => {
   const { id_cliente, id_estado, id_origen, canal_origen, detalles } = req.body;
 
-  // detalles es un array: [{ id_producto: 1, cantidad: 2, precio_aplicado: 3.50 }]
-
   try {
+    const adminClient = getAdminClient();
     // 1. Crear la cabecera de la Orden
-    const { data: orden, error: errorOrden } = await supabase
+    const { data: orden, error: errorOrden } = await adminClient
       .from('ordenes')
       .insert([{ id_cliente, id_estado, id_origen, canal_origen, created_by: req.user.id }])
       .select()
@@ -30,7 +31,7 @@ router.post('/', async (req, res) => {
       updated_by: req.user.id,
     }));
 
-    const { error: errorDetalles } = await supabase.from('detalle_orden').insert(detallesAInsertar);
+    const { error: errorDetalles } = await adminClient.from('detalle_orden').insert(detallesAInsertar);
 
     if (errorDetalles) throw errorDetalles;
 

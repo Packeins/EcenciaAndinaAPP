@@ -13,8 +13,10 @@ import Convenios from './pages/Convenios';
 import Clientes from './pages/Clientes';
 import Usuarios from './pages/Usuarios';
 import Menu from './pages/Menu';
+import Productos from './pages/Productos';
 import NotFound from './pages/NotFound';
 import Perfil from './pages/Perfil';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 const queryClient = new QueryClient();
 
@@ -28,16 +30,26 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Navigate to={`/login${window.location.hash}`} replace />} />
             <Route path="/login" element={<Login />} />
-            <Route element={<DashboardLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/pedidos" element={<Pedidos />} />
-              <Route path="/reportes" element={<Reportes />} />
-              <Route path="/convenios" element={<Convenios />} />
-              <Route path="/clientes" element={<Clientes />} />
-              <Route path="/usuarios" element={<Usuarios />} />
-              <Route path="/perfil" element={<Perfil />} />
-              <Route path="/menu" element={<Menu />} />
+            
+            {/* Rutas protegidas generales (Cualquier rol) */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<DashboardLayout />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/pedidos" element={<Pedidos />} />
+                <Route path="/perfil" element={<Perfil />} />
+                
+                {/* Rutas exclusivas de administrador */}
+                <Route element={<ProtectedRoute allowedRoles={['administrador']} />}>
+                  <Route path="/reportes" element={<Reportes />} />
+                  <Route path="/convenios" element={<Convenios />} />
+                  <Route path="/clientes" element={<Clientes />} />
+                  <Route path="/usuarios" element={<Usuarios />} />
+                  <Route path="/menu" element={<Menu />} />
+                  <Route path="/productos" element={<Productos />} />
+                </Route>
+              </Route>
             </Route>
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

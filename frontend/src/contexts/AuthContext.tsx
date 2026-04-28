@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { User, UserRole } from '@/types';
+import { API_BASE_URL } from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -29,8 +30,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Escuchar cambios en localStorage (para cerrar sesión en todas las pestañas)
     const handleStorageChange = (e: StorageEvent) => {
-      // Si otra pestaña eliminó el token o el usuario (cerrar sesión)
+      // Si otra pestaña eliminó el usuario (cerrar sesión)
       if (e.key === 'user' && e.newValue === null) {
+        console.log('Sesión cerrada en otra pestaña. Sincronizando...');
         setUser(null);
       }
       // Si otra pestaña actualizó el usuario (como cambio de perfil)
@@ -52,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
   ): Promise<{ success: boolean; rol: UserRole; message?: string }> => {
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identificador: email, password }),
