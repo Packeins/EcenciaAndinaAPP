@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { supabase, getAdminClient } = require('../config/supabase');
 const authMiddleware = require('../middlewares/authMiddleware');
+const roleMiddleware = require('../middlewares/roleMiddleware');
 
 router.use(authMiddleware);
+router.use(roleMiddleware(['administrador']));
 
 // Función auxiliar para formatear cliente con su convenio
 const formatCliente = (cli) => {

@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { supabase, getAdminClient } = require('../config/supabase');
 const authMiddleware = require('../middlewares/authMiddleware');
+const roleMiddleware = require('../middlewares/roleMiddleware');
 
 // Obtener todos los empleados
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', authMiddleware, roleMiddleware(['administrador']), async (req, res) => {
   try {
     const adminClient = getAdminClient();
 
@@ -33,7 +34,7 @@ router.get('/', authMiddleware, async (req, res) => {
 });
 
 // Crear un nuevo empleado
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', authMiddleware, roleMiddleware(['administrador']), async (req, res) => {
   try {
     const { nombre, apellido, correo, password, nombre_usuario, id_rol } = req.body;
     const creatorId = req.user.id;
@@ -54,12 +55,20 @@ router.post('/', authMiddleware, async (req, res) => {
       if (dupeUser) return res.status(400).json({ error: 'El nombre de usuario ya está en uso.' });
     }
 
-    // 1. Crear el usuario en Auth
+    // 1. Crear el usuario en Auth con metadatos de rol y estado
+    const rolNombre = id_rol === 1 || id_rol === '1' ? 'administrador' : 'caja'; // Ajustar según tus IDs de roles
+    
     const { data: authUser, error: authError } = await adminClient.auth.admin.createUser({
       email: correo,
       password: password,
       email_confirm: true,
-      user_metadata: { nombre, apellido, nombre_usuario },
+      user_metadata: { 
+        nombre, 
+        apellido, 
+        nombre_usuario,
+        rol: rolNombre,
+        esta_activo: true
+      },
     });
 
     if (authError) throw authError;
@@ -108,7 +117,7 @@ router.post('/', authMiddleware, async (req, res) => {
 // Pero por ahora actualicemos los básicos de lectura.
 
 // Actualizar estado (Activar/Desactivar)
-router.put('/:id/estado', authMiddleware, async (req, res) => {
+router.put('/:id/estado', authMiddleware, roleMiddleware(['administrador']), async (req, res) => {
   try {
     const { esta_activo } = req.body;
     const adminClient = getAdminClient();
@@ -120,6 +129,12 @@ router.put('/:id/estado', authMiddleware, async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // Sincronizar metadato de estado en Auth
+    await adminClient.auth.admin.updateUserById(req.params.id, {
+      user_metadata: { esta_activo }
+    });
+
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -127,7 +142,7 @@ router.put('/:id/estado', authMiddleware, async (req, res) => {
 });
 
 // Actualizar datos del empleado
-router.put('/:id', authMiddleware, async (req, res) => {
+router.put('/:id', authMiddleware, roleMiddleware(['administrador']), async (req, res) => {
   try {
     const { nombre, apellido, nombre_usuario, id_rol } = req.body;
     const adminClient = getAdminClient();
@@ -145,6 +160,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // Sincronizar metadato de rol en Auth si cambió
+    const rolNombre = id_rol === 1 || id_rol === '1' ? 'administrador' : 'caja';
+    await adminClient.auth.admin.updateUserById(req.params.id, {
+      user_metadata: { rol: rolNombre }
+    });
+
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -152,7 +174,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 });
 
 // Cambiar contraseña (Fuerza bruta administrativa)
-router.put('/:id/password', authMiddleware, async (req, res) => {
+router.put('/:id/password', authMiddleware, roleMiddleware(['administrador']), async (req, res) => {
   try {
     const { password } = req.body;
     const adminClient = getAdminClient();

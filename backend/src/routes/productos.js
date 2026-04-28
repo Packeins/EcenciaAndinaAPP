@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { supabase, getAdminClient } = require('../config/supabase');
 const authMiddleware = require('../middlewares/authMiddleware');
+const roleMiddleware = require('../middlewares/roleMiddleware');
 
 router.use(authMiddleware);
+router.use(roleMiddleware(['administrador']));
 
 // OBTENER TODOS LOS PRODUCTOS
 router.get('/', async (req, res) => {
@@ -16,6 +18,7 @@ router.get('/', async (req, res) => {
                 nombre_producto,
                 precio_unitario,
                 esta_activo,
+                descripcion,
                 id_categoria,
                 categorias_productos (id_categoria, nombre_categoria)
             `)
@@ -29,6 +32,7 @@ router.get('/', async (req, res) => {
       nombre: p.nombre_producto,
       precio: parseFloat(p.precio_unitario),
       activo: p.esta_activo,
+      descripcion: p.descripcion || '',
       id_categoria: p.id_categoria,
       categoria_nombre: p.categorias_productos?.nombre_categoria || 'Sin categoría',
     }));
@@ -41,7 +45,7 @@ router.get('/', async (req, res) => {
 
 // CREAR NUEVO PRODUCTO
 router.post('/', async (req, res) => {
-  const { id_categoria, nombre, precio } = req.body;
+  const { id_categoria, nombre, precio, descripcion } = req.body;
   try {
     const adminClient = getAdminClient();
     const { data, error } = await adminClient
@@ -51,6 +55,7 @@ router.post('/', async (req, res) => {
           id_categoria,
           nombre_producto: nombre,
           precio_unitario: precio,
+          descripcion,
           created_by: req.user.id,
         },
       ])
@@ -64,6 +69,7 @@ router.post('/', async (req, res) => {
       nombre: data.nombre_producto,
       precio: parseFloat(data.precio_unitario),
       activo: data.esta_activo,
+      descripcion: data.descripcion || '',
       id_categoria: data.id_categoria,
       categoria_nombre: data.categorias_productos?.nombre_categoria || 'Sin categoría',
     };
@@ -76,12 +82,13 @@ router.post('/', async (req, res) => {
 
 // ACTUALIZAR PRODUCTO
 router.put('/:id', async (req, res) => {
-  const { id_categoria, nombre, precio, activo } = req.body;
+  const { id_categoria, nombre, precio, activo, descripcion } = req.body;
   const updateData = { updated_by: req.user.id };
   if (id_categoria !== undefined) updateData.id_categoria = id_categoria;
   if (nombre !== undefined) updateData.nombre_producto = nombre;
   if (precio !== undefined) updateData.precio_unitario = precio;
   if (activo !== undefined) updateData.esta_activo = activo;
+  if (descripcion !== undefined) updateData.descripcion = descripcion;
 
   try {
     const adminClient = getAdminClient();
@@ -99,6 +106,7 @@ router.put('/:id', async (req, res) => {
       nombre: data.nombre_producto,
       precio: parseFloat(data.precio_unitario),
       activo: data.esta_activo,
+      descripcion: data.descripcion || '',
       id_categoria: data.id_categoria,
       categoria_nombre: data.categorias_productos?.nombre_categoria || 'Sin categoría',
     };

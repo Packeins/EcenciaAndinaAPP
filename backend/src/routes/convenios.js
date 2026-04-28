@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { supabase, getAdminClient } = require('../config/supabase');
 const authMiddleware = require('../middlewares/authMiddleware');
+const roleMiddleware = require('../middlewares/roleMiddleware');
 
 router.use(authMiddleware);
+router.use(roleMiddleware(['administrador']));
 
 // Función auxiliar para formatear la respuesta del convenio
 const formatConvenio = (conv) => ({
@@ -16,6 +18,7 @@ const formatConvenio = (conv) => ({
   fecha_inicio: conv.fecha_inicio,
   fecha_caducidad: conv.fecha_caducidad,
   activo: conv.esta_activo,
+  cupo_maximo: conv.cupo_maximo || 0,
   totalColaboradores: conv.clientes_convenios?.[0]?.count || 0,
   consumoMensual: 0, 
 });
@@ -61,6 +64,21 @@ router.post('/:id/clientes', async (req, res) => {
   const { id: id_convenio } = req.params;
   try {
     const adminClient = getAdminClient();
+    
+    // VALIDAR CUPO MÁXIMO
+    const { data: convenio, error: convError } = await adminClient
+      .from('convenios')
+      .select('cupo_maximo, clientes_convenios(count)')
+      .eq('id_convenio', id_convenio)
+      .single();
+    
+    if (convError || !convenio) return res.status(404).json({ error: 'Convenio no encontrado.' });
+    
+    const countActual = convenio.clientes_convenios?.[0]?.count || 0;
+    if (countActual >= convenio.cupo_maximo) {
+      return res.status(400).json({ error: `Se ha alcanzado el cupo máximo de este convenio (${convenio.cupo_maximo}).` });
+    }
+
     const { data: cliente, error: cliError } = await adminClient.from('clientes').select('id_tipo_cliente').eq('id_cliente', id_cliente).single();
     if (cliError || !cliente) return res.status(404).json({ error: 'Cliente no encontrado.' });
     if (cliente.id_tipo_cliente !== 1) return res.status(400).json({ error: 'Este cliente es de tipo Frecuente.' });
@@ -79,6 +97,20 @@ router.post('/:id/clientes/nuevo', async (req, res) => {
 
   try {
     const adminClient = getAdminClient();
+
+    // VALIDAR CUPO MÁXIMO
+    const { data: convenio, error: convError } = await adminClient
+      .from('convenios')
+      .select('cupo_maximo, clientes_convenios(count)')
+      .eq('id_convenio', id_convenio)
+      .single();
+    
+    if (convError || !convenio) return res.status(404).json({ error: 'Convenio no encontrado.' });
+    
+    const countActual = convenio.clientes_convenios?.[0]?.count || 0;
+    if (countActual >= convenio.cupo_maximo) {
+      return res.status(400).json({ error: `Se ha alcanzado el cupo máximo de este convenio (${convenio.cupo_maximo}).` });
+    }
     
     // 1. Crear el cliente (Siempre tipo Convenio: ID 1)
     const { data: newClient, error: clientError } = await adminClient
@@ -135,12 +167,17 @@ router.delete('/:id/clientes/:clienteId', async (req, res) => {
 
 // CREAR NUEVO CONVENIO
 router.post('/', async (req, res) => {
-  const { ruc, nombre_empresa, representante, telefono, email, fecha_inicio, fecha_caducidad } = req.body;
+  const { ruc, nombre_empresa, representante, telefono, email, fecha_inicio, fecha_caducidad, cupo_maximo } = req.body;
+  
+  if (cupo_maximo !== undefined && cupo_maximo < 0) {
+    return res.status(400).json({ error: 'El cupo máximo no puede ser menor a 0.' });
+  }
+
   try {
     const adminClient = getAdminClient();
     const { data, error } = await adminClient
       .from('convenios')
-      .insert([{ ruc, nombre_empresa, representante, telefono, email, fecha_inicio, fecha_caducidad, created_by: req.user.id }])
+      .insert([{ ruc, nombre_empresa, representante, telefono, email, fecha_inicio, fecha_caducidad, cupo_maximo, created_by: req.user.id }])
       .select(`*, clientes_convenios(count)`)
       .single();
     if (error) throw error;
@@ -158,6 +195,11 @@ router.put('/:id', async (req, res) => {
   if (activo !== undefined) actualizacion.esta_activo = activo;
   if (ruc) actualizacion.ruc = ruc;
   if (nombre_empresa) actualizacion.nombre_empresa = nombre_empresa;
+  
+  if (req.body.cupo_maximo !== undefined) {
+    if (req.body.cupo_maximo < 0) return res.status(400).json({ error: 'El cupo máximo no puede ser menor a 0.' });
+    actualizacion.cupo_maximo = req.body.cupo_maximo;
+  }
 
   try {
     const adminClient = getAdminClient();

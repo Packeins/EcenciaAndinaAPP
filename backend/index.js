@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const supabase = require('./src/config/supabase'); // Configuración de Supabase
+const { supabase } = require('./src/config/supabase'); // Configuración de Supabase
 const authRoutes = require('./src/routes/auth'); // Importamos las nuevas rutas de login
 
 const app = express();

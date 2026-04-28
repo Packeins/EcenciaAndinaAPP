@@ -32,7 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Pencil, User, Phone, Search, IdCard, Users, Building2, Trash2 } from 'lucide-react';
+import { Plus, Pencil, User, Phone, Search, IdCard, Users, Building2, Trash2, Filter, Activity, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import {
@@ -51,6 +51,8 @@ export default function Clientes() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
 
   // Confirmación para toggle activo/inactivo
   const [isAlertOpen, setIsAlertOpen] = useState(false);
@@ -109,12 +111,19 @@ export default function Clientes() {
   };
 
   // --- FILTRO DE BÚSQUEDA ---
-  const filteredClients = clients.filter(
-    (c) =>
+  const filteredClients = clients.filter((c) => {
+    const matchesSearch = 
       `${c.nombre} ${c.apellido}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.cedula.includes(searchTerm) ||
-      c.telefono.includes(searchTerm),
-  );
+      (c.telefono && c.telefono.includes(searchTerm));
+    
+    const matchesType = filterType === 'all' || String(c.id_tipo_cliente) === filterType;
+    const matchesStatus = filterStatus === 'all' || 
+                          (filterStatus === 'active' && c.activo) || 
+                          (filterStatus === 'inactive' && !c.activo);
+
+    return matchesSearch && matchesType && matchesStatus;
+  });
 
   // --- FORMULARIO: ABRIR NUEVO ---
   const handleOpenNew = () => {
@@ -298,14 +307,63 @@ export default function Clientes() {
               <CardTitle className="text-foreground">Lista de Clientes</CardTitle>
               <CardDescription>Administre los clientes y su información</CardDescription>
             </div>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nombre o cédula..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Búsqueda</span>
+                <div className="relative w-72">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Nombre, cédula o teléfono..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-muted/30 focus-visible:bg-background transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Tipo de Cliente</span>
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="w-[180px] bg-muted/30">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Users className="h-4 w-4" />
+                      <SelectValue placeholder="Todos" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {clientTypes.map(t => (
+                      <SelectItem key={t.id_tipo_cliente} value={String(t.id_tipo_cliente)}>{t.nombre_tipo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Estado</span>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-[180px] bg-muted/30">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Activity className="h-4 w-4" />
+                      <SelectValue placeholder="Todos" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="active">Activos</SelectItem>
+                    <SelectItem value="inactive">Inactivos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="mb-1 text-muted-foreground hover:text-foreground h-9"
+                onClick={() => { setSearchTerm(''); setFilterType('all'); setFilterStatus('all'); }}
+              >
+                Limpiar
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -314,7 +372,7 @@ export default function Clientes() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-accent/50">
-                  <TableHead>Cliente</TableHead>
+                  <TableHead>Nombre de Cliente</TableHead>
                   <TableHead>Tipo de Cliente</TableHead>
                   <TableHead>Cédula</TableHead>
                   <TableHead>Teléfono</TableHead>

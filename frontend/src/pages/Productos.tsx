@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Product {
   id: string;
@@ -40,6 +41,7 @@ interface Product {
   activo: boolean;
   id_categoria: number;
   categoria_nombre: string;
+  descripcion: string;
 }
 
 interface Category {
@@ -65,7 +67,8 @@ export default function Productos() {
     nombre: '',
     precio: '',
     id_categoria: '',
-    activo: true
+    activo: true,
+    descripcion: ''
   });
   const [categoryForm, setCategoryForm] = useState({
     nombre_categoria: ''
@@ -100,7 +103,8 @@ export default function Productos() {
         nombre: product.nombre,
         precio: product.precio.toString(),
         id_categoria: product.id_categoria.toString(),
-        activo: product.activo
+        activo: product.activo,
+        descripcion: product.descripcion || ''
       });
     } else {
       setEditingProduct(null);
@@ -108,7 +112,8 @@ export default function Productos() {
         nombre: '',
         precio: '',
         id_categoria: categories[0]?.id_categoria.toString() || '',
-        activo: true
+        activo: true,
+        descripcion: ''
       });
     }
     setProductDialogOpen(true);
@@ -187,7 +192,8 @@ export default function Productos() {
 
   const filteredProducts = products.filter(p => 
     p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.categoria_nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    p.categoria_nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.descripcion && p.descripcion.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -233,14 +239,30 @@ export default function Productos() {
                     <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No se encontraron productos.</TableCell></TableRow>
                   ) : filteredProducts.map(p => (
                     <TableRow key={p.id}>
-                      <TableCell className="font-medium text-foreground">{p.nombre}</TableCell>
+                      <TableCell className="font-medium text-foreground">
+                        <div>
+                          <p>{p.nombre}</p>
+                          {p.descripcion && <p className="text-xs text-muted-foreground line-clamp-1">{p.descripcion}</p>}
+                        </div>
+                      </TableCell>
                       <TableCell><Badge variant="outline">{p.categoria_nombre}</Badge></TableCell>
                       <TableCell className="font-semibold">${p.precio.toFixed(2)}</TableCell>
-                      <TableCell><Badge variant={p.activo ? 'default' : 'secondary'}>{p.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Switch 
+                            checked={p.activo} 
+                            onCheckedChange={() => toggleProductStatus(p)} 
+                          />
+                          <Badge variant={p.activo ? 'default' : 'secondary'}>
+                            {p.activo ? 'Activo' : 'Inactivo'}
+                          </Badge>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                           <Switch checked={p.activo} onCheckedChange={() => toggleProductStatus(p)} />
-                           <Button variant="ghost" size="icon" onClick={() => handleOpenProduct(p)}><Pencil className="h-4 w-4" /></Button>
+                        <div className="flex justify-end gap-2">
+                           <Button variant="outline" size="sm" onClick={() => handleOpenProduct(p)} title="Editar producto">
+                             <Pencil className="h-4 w-4" />
+                           </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -290,7 +312,10 @@ export default function Productos() {
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label>Precio Unitario ($) *</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Precio Unitario ($) *</Label>
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Incluye IVA</span>
+                </div>
                 <Input type="number" step="0.01" value={productForm.precio} onChange={e => setProductForm({...productForm, precio: e.target.value})} placeholder="0.00" />
               </div>
               <div className="space-y-2">
@@ -302,6 +327,15 @@ export default function Productos() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Descripción</Label>
+              <Textarea 
+                value={productForm.descripcion} 
+                onChange={e => setProductForm({...productForm, descripcion: e.target.value})} 
+                placeholder="Detalle los ingredientes o características del producto..." 
+                className="resize-none"
+              />
             </div>
           </div>
           <DialogFooter>

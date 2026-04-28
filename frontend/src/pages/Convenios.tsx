@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Users, Building2, Mail, Phone, CalendarDays, Trash2, Search, UserPlus, ArrowLeft } from 'lucide-react';
+import { Plus, Pencil, Users, Building2, Mail, Phone, CalendarDays, Trash2, Search, UserPlus, ArrowLeft, FileDown, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -48,6 +48,7 @@ export default function Convenios() {
     email: '',
     fecha_inicio: '',
     fecha_caducidad: '',
+    cupo_maximo: 0,
   });
 
   // --- GESTIÓN DE COLABORADORES ---
@@ -62,6 +63,7 @@ export default function Convenios() {
     apellido: '',
     telefono: ''
   });
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   useEffect(() => {
     fetchConvenios();
@@ -94,7 +96,7 @@ export default function Convenios() {
 
   const handleOpenNew = () => {
     setEditingConvenio(null);
-    setFormData({ ruc: '', nombre_empresa: '', representante: '', telefono: '', email: '', fecha_inicio: '', fecha_caducidad: '' });
+    setFormData({ ruc: '', nombre_empresa: '', representante: '', telefono: '', email: '', fecha_inicio: '', fecha_caducidad: '', cupo_maximo: 0 });
     setAssociatedClients([]);
     setDialogOpen(true);
     setShowCreateForm(false);
@@ -110,6 +112,7 @@ export default function Convenios() {
       email: convenio.email,
       fecha_inicio: convenio.fecha_inicio,
       fecha_caducidad: convenio.fecha_caducidad,
+      cupo_maximo: convenio.cupo_maximo,
     });
     fetchAssociatedClients(convenio.id);
     fetchAllClientsForSelection();
@@ -202,11 +205,80 @@ export default function Convenios() {
     } finally { setIsAlertOpen(false); setConvenioToToggle(null); }
   };
 
+  const handleExportPDF = (convenio: Convenio) => {
+    try {
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        toast.error('Ventana emergente bloqueada');
+        return;
+      }
+
+      const inicio = convenio.fecha_inicio || '';
+      const fin = convenio.fecha_caducidad || '';
+      
+      // Cálculo de años simple
+      let años = 1;
+      if (inicio && fin) {
+        const d1 = new Date(inicio);
+        const d2 = new Date(fin);
+        años = Math.round(Math.abs(d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24 * 365));
+      }
+
+      const contenido = `
+        <html>
+          <head>
+            <title>Contrato ${convenio.nombre_empresa}</title>
+            <style>
+              body { font-family: 'Times New Roman', serif; padding: 40px 60px; line-height: 1.6; text-align: justify; }
+              .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 30px; padding-bottom: 10px; }
+              .titulo { text-align: center; font-weight: bold; text-decoration: underline; margin-bottom: 30px; }
+              .firma { margin-top: 60px; display: flex; justify-content: space-between; }
+              .linea { border-top: 1px solid #000; width: 200px; text-align: center; padding-top: 5px; }
+              .dato { font-weight: bold; border-bottom: 1px solid #ccc; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h2 style="margin:0">ECENCIA ANDINA</h2>
+              <p style="margin:0; font-size:12px">CONVENIOS DE ALIMENTACIÓN</p>
+            </div>
+            <div class="titulo">CONTRATO DE SERVICIO DE ALIMENTACIÓN</div>
+            
+            <p>Se celebra el presente convenio con fecha <span class="dato">${new Date().toLocaleDateString()}</span> para brindar servicios de almuerzos a la empresa <span class="dato">${convenio.nombre_empresa}</span> con RUC <span class="dato">${convenio.ruc}</span>.</p>
+            
+            <p>El convenio contempla un máximo de <span class="dato">${convenio.cupo_maximo}</span> colaboradores debidamente registrados en el sistema.</p>
+            
+            <p>La duración del contrato será de <span class="dato">${años} año(s)</span>, iniciando el día <span class="dato">${inicio}</span> y finalizando el día <span class="dato">${fin}</span>.</p>
+            
+            <p>Representante legal: <span class="dato">${convenio.representante || '________________'}</span><br>
+               Contacto: <span class="dato">${convenio.email || convenio.telefono || '________________'}</span></p>
+
+            <div class="firma">
+              <div class="linea">Por ECencia Andina</div>
+              <div class="linea">Por ${convenio.nombre_empresa}</div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      printWindow.document.write(contenido);
+      printWindow.document.close();
+      
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 300);
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al generar el documento');
+    }
+  };
+
   const filteredAvailableClients = availableClients.filter(c => 
     c.id_tipo_cliente === 1 &&
     !associatedClients.find(ac => ac.id === c.id) &&
-    (c.nombre.toLowerCase().includes(clientSearch.toLowerCase()) || c.cedula.includes(clientSearch))
-  ).slice(0, 5);
+    (clientSearch === '' || c.nombre.toLowerCase().includes(clientSearch.toLowerCase()) || c.cedula.includes(clientSearch))
+  ).slice(0, 10);
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '—';
@@ -240,12 +312,27 @@ export default function Convenios() {
                    <div className="flex items-center gap-2 text-foreground"><Users className="h-4 w-4 text-muted-foreground" /> {convenio.representante || '—'}</div>
                    <div className="flex items-center gap-2 text-foreground"><CalendarDays className="h-4 w-4 text-muted-foreground" /> {formatDate(convenio.fecha_inicio)} — {formatDate(convenio.fecha_caducidad)}</div>
                 </div>
-                <div className="flex items-center justify-between rounded-lg bg-accent p-3">
-                  <div><p className="text-xs text-muted-foreground">Colaboradores</p><p className="font-semibold">{convenio.totalColaboradores}</p></div>
-                  <div className="text-right"><p className="text-xs text-muted-foreground">Estado</p>{(new Date(convenio.fecha_caducidad + 'T23:59:59') < new Date()) ? <Badge variant="destructive">Vencido</Badge> : <Badge variant="outline">Vigente</Badge>}</div>
+                <div className="space-y-3 py-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground font-medium">Máximo de Colaboradores</span>
+                    <span className={`px-2 py-0.5 rounded-full ${convenio.totalColaboradores >= convenio.cupo_maximo ? "bg-destructive/10 text-destructive font-bold" : "bg-primary/10 text-primary font-bold"}`}>
+                      {convenio.totalColaboradores} / {convenio.cupo_maximo}
+                    </span>
+                  </div>
+                  <div className="h-2 w-full bg-accent rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all ${convenio.totalColaboradores >= convenio.cupo_maximo ? 'bg-destructive' : 'bg-primary'}`}
+                      style={{ width: `${Math.min((convenio.totalColaboradores / (convenio.cupo_maximo || 1)) * 100, 100)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center justify-between border-t pt-2">
-                  <Switch checked={convenio.activo} onCheckedChange={() => handleToggleClick(convenio)} />
+                <div className="flex items-center justify-between border-t pt-3">
+                  <div className="flex items-center gap-2">
+                    <Switch checked={convenio.activo} onCheckedChange={() => handleToggleClick(convenio)} />
+                    <Button variant="ghost" size="icon" onClick={() => handleExportPDF(convenio)} title="Exportar PDF">
+                      <FileDown className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors" />
+                    </Button>
+                  </div>
                   <Button variant="ghost" size="sm" onClick={() => handleEdit(convenio)}><Pencil className="mr-1 h-4 w-4" /> Editar</Button>
                 </div>
               </CardContent>
@@ -277,10 +364,22 @@ export default function Convenios() {
                   <div className="space-y-2"><Label>Teléfono</Label><Input value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} /></div>
                   <div className="space-y-2"><Label>Email</Label><Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
                </div>
-               <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-3">
                   <div className="space-y-2"><Label>Fecha Inicio *</Label><Input type="date" value={formData.fecha_inicio} onChange={e => setFormData({...formData, fecha_inicio: e.target.value})} /></div>
                   <div className="space-y-2"><Label>Fecha Caducidad *</Label><Input type="date" value={formData.fecha_caducidad} onChange={e => setFormData({...formData, fecha_caducidad: e.target.value})} /></div>
-               </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Máximo de Colaboradores *</Label>
+                      <ShieldCheck className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <Input 
+                      type="number" 
+                      min="0"
+                      value={formData.cupo_maximo} 
+                      onChange={e => setFormData({...formData, cupo_maximo: Math.max(0, parseInt(e.target.value) || 0)})} 
+                    />
+                  </div>
+                </div>
                <DialogFooter className="pt-4"><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button><Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar Datos'}</Button></DialogFooter>
             </TabsContent>
 
@@ -290,9 +389,19 @@ export default function Convenios() {
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input placeholder="Buscar por nombre o cédula..." className="pl-10" value={clientSearch} onChange={e => setClientSearch(e.target.value)} />
-                      {clientSearch && (
-                        <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-md">
+                      <Input 
+                        placeholder="Buscar por nombre o cédula..." 
+                        className="pl-10" 
+                        value={clientSearch} 
+                        onChange={e => setClientSearch(e.target.value)}
+                        onFocus={() => setIsSearchFocused(true)}
+                        onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                      />
+                      {(clientSearch || isSearchFocused) && (
+                        <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-[250px] overflow-y-auto">
+                          <div className="p-2 border-b bg-accent/50 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                            {clientSearch ? 'Resultados de búsqueda' : 'Sugerencias de clientes'}
+                          </div>
                           {filteredAvailableClients.length > 0 ? (
                             filteredAvailableClients.map(c => (
                               <div key={c.id} className="flex items-center justify-between p-2 hover:bg-accent cursor-pointer" onClick={() => { handleAddClient(c.id); setClientSearch(''); }}>

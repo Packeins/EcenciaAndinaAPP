@@ -14,16 +14,18 @@ router.post('/login', async (req, res) => {
 
   try {
     let emailToLogin = loginId;
+    const adminClient = getAdminClient();
 
     // Si es nombre de usuario, buscar correo
     if (!loginId.includes('@')) {
-      const { data: empleado, error: empError } = await supabase
+      const { data: empleado, error: empError } = await adminClient
         .from('empleados')
         .select('correo')
         .eq('nombre_usuario', loginId)
         .single();
 
       if (empError || !empleado) {
+        console.error('Login: Usuario no encontrado en tabla empleados:', loginId, empError?.message);
         return res.status(401).json({ mensaje: 'Usuario no encontrado' });
       }
       emailToLogin = empleado.correo;
@@ -35,14 +37,12 @@ router.post('/login', async (req, res) => {
     });
 
     if (authError || !authData.user) {
+      console.error('Login: Error en Supabase Auth:', emailToLogin, authError?.message);
       return res.status(401).json({ mensaje: 'Credenciales inválidas' });
     }
 
     const uid = authData.user.id;
     const uemail = authData.user.email;
-
-    // Búsqueda del empleado con un cliente fresco para evitar problemas de RLS/Sesión
-    const adminClient = getAdminClient();
 
     let { data: empleadosData, error: dbError } = await adminClient
       .from('empleados')
@@ -50,13 +50,22 @@ router.post('/login', async (req, res) => {
       .eq('id', uid)
       .limit(1);
 
+    if (dbError) {
+      console.error('Login: Error buscando datos del empleado:', dbError.message);
+    }
+
     // Fallback por correo si falla el ID
     if (!dbError && (!empleadosData || empleadosData.length === 0)) {
-      const { data: fallbackData } = await adminClient
+      const { data: fallbackData, error: fbError } = await adminClient
         .from('empleados')
         .select('*, roles(nombre_rol)')
         .eq('correo', uemail)
         .limit(1);
+      
+      if (fbError) {
+        console.error('Login: Error en fallback por correo:', fbError.message);
+      }
+
       if (fallbackData && fallbackData.length > 0) {
         empleadosData = fallbackData;
       }
@@ -65,6 +74,7 @@ router.post('/login', async (req, res) => {
     const empleadoData = empleadosData && empleadosData.length > 0 ? empleadosData[0] : null;
 
     if (!empleadoData) {
+      console.error('Login: Empleado no encontrado tras auth exitosa:', uid, uemail);
       return res.status(404).json({ mensaje: 'Empleado no registrado en la base de datos' });
     }
 
@@ -82,6 +92,18 @@ router.post('/login', async (req, res) => {
       rolFrontend = 'administrador';
     }
 
+    // ACTUALIZAR METADATOS EN SUPABASE AUTH (para que el middleware no tenga que consultar la DB)
+    // Solo lo hacemos si hay cambios o para asegurar sincronización
+    if (authData.user.user_metadata?.rol !== rolFrontend || authData.user.user_metadata?.esta_activo !== empleadoData.esta_activo) {
+      await adminClient.auth.admin.updateUserById(uid, {
+        user_metadata: { 
+          ...authData.user.user_metadata,
+          rol: rolFrontend,
+          esta_activo: empleadoData.esta_activo
+        }
+      });
+    }
+
     res.json({
       mensaje: '¡Acceso concedido!',
       token: authData.session.access_token,
@@ -96,6 +118,7 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (error) {
+    console.error('Login: Error fatal:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor', detalle: error.message });
   }
 });

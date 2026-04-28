@@ -44,6 +44,7 @@ export interface Convenio {
   fecha_inicio: string;
   fecha_caducidad: string;
   activo: boolean;
+  cupo_maximo: number;
   totalColaboradores: number;
   consumoMensual: number;
 }
