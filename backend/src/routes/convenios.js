@@ -178,7 +178,7 @@ router.post('/', async (req, res) => {
     const { data, error } = await adminClient
       .from('convenios')
       .insert([{ ruc, nombre_empresa, representante, telefono, email, fecha_inicio, fecha_caducidad, cupo_maximo, created_by: req.user.id }])
-      .select(`*, clientes_convenios(count)`)
+      .select('*, clientes_convenios(count)')
       .single();
     if (error) throw error;
     res.status(201).json(formatConvenio(data));

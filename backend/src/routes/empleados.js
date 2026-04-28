@@ -146,7 +146,7 @@ router.put('/:id', authMiddleware, roleMiddleware(['administrador']), async (req
   try {
     const { nombre, apellido, nombre_usuario, id_rol } = req.body;
     const adminClient = getAdminClient();
-    const { error } = await adminClient
+    const { data, error } = await adminClient
       .from('empleados')
       .update({
         nombre,
@@ -178,7 +178,7 @@ router.put('/:id/password', authMiddleware, roleMiddleware(['administrador']), a
   try {
     const { password } = req.body;
     const adminClient = getAdminClient();
-    const { data, error } = await adminClient.auth.admin.updateUserById(req.params.id, {
+    const { error } = await adminClient.auth.admin.updateUserById(req.params.id, {
       password,
     });
 
