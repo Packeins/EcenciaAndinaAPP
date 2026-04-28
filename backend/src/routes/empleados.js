@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { supabase, getAdminClient } = require('../config/supabase');
+const { getAdminClient } = require('../config/supabase');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
 
@@ -146,7 +146,7 @@ router.put('/:id', authMiddleware, roleMiddleware(['administrador']), async (req
   try {
     const { nombre, apellido, nombre_usuario, id_rol } = req.body;
     const adminClient = getAdminClient();
-    const { data, error } = await adminClient
+    const { error } = await adminClient
       .from('empleados')
       .update({
         nombre,

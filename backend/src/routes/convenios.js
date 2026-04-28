@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { supabase, getAdminClient } = require('../config/supabase');
+const { getAdminClient } = require('../config/supabase');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
 
@@ -203,7 +203,7 @@ router.put('/:id', async (req, res) => {
 
   try {
     const adminClient = getAdminClient();
-    const { data, error } = await adminClient.from('convenios').update(actualizacion).eq('id_convenio', id).select(`*, clientes_convenios(count)`).single();
+    const { data, error } = await adminClient.from('convenios').update(actualizacion).eq('id_convenio', id).select('*, clientes_convenios(count)').single();
     if (error) throw error;
     res.json(formatConvenio(data));
   } catch (error) {

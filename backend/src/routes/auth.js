@@ -138,7 +138,7 @@ router.post('/refresh', async (req, res) => {
     const { data, error } = await supabase.auth.refreshSession({ refresh_token });
     if (error) return res.status(401).json({ error: 'Sesión expirada' });
     res.json({ token: data.session.access_token, refresh_token: data.session.refresh_token });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Error interno' });
   }
 });

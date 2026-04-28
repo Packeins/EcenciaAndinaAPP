@@ -52,8 +52,8 @@ export default function Convenios() {
   });
 
   // --- GESTIÓN DE COLABORADORES ---
-  const [associatedClients, setAssociatedClients] = useState<any[]>([]);
-  const [availableClients, setAvailableClients] = useState<any[]>([]);
+  const [associatedClients, setAssociatedClients] = useState<Client[]>([]);
+  const [availableClients, setAvailableClients] = useState<Client[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
