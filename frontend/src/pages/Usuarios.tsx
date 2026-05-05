@@ -100,7 +100,7 @@ export default function Usuarios() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiFetch('http://localhost:3001/api/empleados');
+      const response = await apiFetch('/empleados');
 
       const data = await response.json();
 
@@ -129,7 +129,7 @@ export default function Usuarios() {
 
     setIsSavingCreate(true);
     try {
-      const response = await apiFetch('http://localhost:3001/api/empleados', {
+      const response = await apiFetch('/empleados', {
         method: 'POST',
         body: JSON.stringify(createFormData),
       });
@@ -165,7 +165,7 @@ export default function Usuarios() {
 
     setIsSavingEdit(true);
     try {
-      const response = await apiFetch(`http://localhost:3001/api/empleados/${selectedUser.id}`, {
+      const response = await apiFetch(`/empleados/${selectedUser.id}`, {
         method: 'PUT',
         body: JSON.stringify(editFormData),
       });
@@ -188,7 +188,7 @@ export default function Usuarios() {
 
   const handleResetPassword = async (id: string, nombre: string) => {
     try {
-      const response = await apiFetch(`http://localhost:3001/api/empleados/${id}/reset-password`, {
+      const response = await apiFetch(`/empleados/${id}/reset-password`, {
         method: 'POST',
       });
 
@@ -223,7 +223,7 @@ export default function Usuarios() {
     setIsSavingPassword(true);
     try {
       const response = await apiFetch(
-        `http://localhost:3001/api/empleados/${selectedUser.id}/password`,
+        `/empleados/${selectedUser.id}/password`,
         {
           method: 'PUT',
           body: JSON.stringify({ password: passwordData.password }),
@@ -259,7 +259,7 @@ export default function Usuarios() {
 
   const confirmToggle = async (id: string, newState: boolean) => {
     try {
-      const response = await apiFetch(`http://localhost:3001/api/empleados/${id}/estado`, {
+      const response = await apiFetch(`/empleados/${id}/estado`, {
         method: 'PUT',
         body: JSON.stringify({ esta_activo: newState }),
       });

@@ -3,12 +3,10 @@ const router = express.Router();
 const { getAdminClient } = require('../config/supabase');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
-
 router.use(authMiddleware);
-router.use(roleMiddleware(['administrador']));
 
 // OBTENER TODOS LOS PRODUCTOS
-router.get('/', async (req, res) => {
+router.get('/', roleMiddleware(['administrador', 'caja']), async (req, res) => {
   try {
     const adminClient = getAdminClient();
     const { data, error } = await adminClient
@@ -44,7 +42,7 @@ router.get('/', async (req, res) => {
 });
 
 // CREAR NUEVO PRODUCTO
-router.post('/', async (req, res) => {
+router.post('/', roleMiddleware(['administrador']), async (req, res) => {
   const { id_categoria, nombre, precio, descripcion } = req.body;
   try {
     const adminClient = getAdminClient();
@@ -81,7 +79,7 @@ router.post('/', async (req, res) => {
 });
 
 // ACTUALIZAR PRODUCTO
-router.put('/:id', async (req, res) => {
+router.put('/:id', roleMiddleware(['administrador']), async (req, res) => {
   const { id_categoria, nombre, precio, activo, descripcion } = req.body;
   const updateData = { updated_by: req.user.id };
   if (id_categoria !== undefined) updateData.id_categoria = id_categoria;

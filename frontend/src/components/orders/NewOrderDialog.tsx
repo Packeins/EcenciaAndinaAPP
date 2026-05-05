@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { ClientType, Order } from '@/types';
-import {
-  mockClients,
-  mockConvenios,
-  buildAlmuerzoLabel,
-  platosFuertes,
-  sopas,
-} from '@/data/mockData';
+import { apiFetch } from '@/lib/api';
+import { useClientsAndConvenios } from '@/hooks/useClientsAndConvenios';
 import {
   Dialog,
   DialogContent,
@@ -25,9 +23,41 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { UserPlus, X } from 'lucide-react';
 import { OrderFormFields, OrderFormState } from './OrderFormFields';
 import { toast } from 'sonner';
+
+const formSchema = z.object({
+  clientMode: z.enum(['existing', 'new']),
+  clienteId: z.string().optional(),
+  cedula: z.string().optional(),
+  nombre: z.string().optional(),
+  apellido: z.string().optional(),
+  whatsapp: z.string().optional(),
+  tipoCliente: z.enum(['cliente', 'convenio']),
+  convenioId: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.clientMode === 'existing') {
+    if (!data.clienteId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione un cliente", path: ["clienteId"] });
+    }
+  } else {
+    if (!data.cedula || data.cedula.length < 10) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Cédula debe tener al menos 10 dígitos", path: ["cedula"] });
+    }
+    if (!data.nombre || data.nombre.trim() === '') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El nombre es requerido", path: ["nombre"] });
+    }
+    if (!data.apellido || data.apellido.trim() === '') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El apellido es requerido", path: ["apellido"] });
+    }
+    if (data.tipoCliente === 'convenio' && !data.convenioId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione el convenio", path: ["convenioId"] });
+    }
+  }
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface NewOrderDialogProps {
   open: boolean;
@@ -35,112 +65,160 @@ interface NewOrderDialogProps {
   onCreate: (order: Order) => void;
 }
 
-type ClientMode = 'existing' | 'new';
-
 export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogProps) {
-  const [clientMode, setClientMode] = useState<ClientMode>('existing');
-  const [clienteId, setClienteId] = useState<string>('');
-  const [nombre, setNombre] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
-  const [tipoCliente, setTipoCliente] = useState<ClientType>('cliente');
-  const [convenioId, setConvenioId] = useState<string>('');
+  const { clientes, convenios, isLoading, refetchClients } = useClientsAndConvenios();
+  
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      clientMode: 'existing',
+      clienteId: '',
+      cedula: '',
+      nombre: '',
+      apellido: '',
+      whatsapp: '',
+      tipoCliente: 'cliente',
+      convenioId: '',
+    }
+  });
+
+  const { watch, handleSubmit, reset, control, setValue, formState: { errors } } = form;
+  
+  const clientMode = watch('clientMode');
+  const tipoCliente = watch('tipoCliente');
+  const clienteId = watch('clienteId');
 
   const [state, setState] = useState<OrderFormState>({
-    tipoAlmuerzo: 'normal',
-    platoFuerte: platosFuertes[0],
-    sopa: sopas[0],
-    cantidad: 1,
+    items: [],
     observaciones: '',
-    productos: [],
   });
 
   useEffect(() => {
     if (open) {
-      setClientMode('existing');
-      setClienteId('');
-      setNombre('');
-      setWhatsapp('');
-      setTipoCliente('cliente');
-      setConvenioId('');
+      reset({
+        clientMode: 'existing',
+        clienteId: '',
+        cedula: '',
+        nombre: '',
+        apellido: '',
+        whatsapp: '',
+        tipoCliente: 'cliente',
+        convenioId: '',
+      });
       setState({
-        tipoAlmuerzo: 'normal',
-        platoFuerte: platosFuertes[0],
-        sopa: sopas[0],
-        cantidad: 1,
+        items: [],
         observaciones: '',
-        productos: [],
       });
     }
-  }, [open]);
+  }, [open, reset]);
 
-  const selectedClient = mockClients.find((c) => c.id === clienteId);
-  const effectiveTipoCliente: ClientType = clientMode === 'existing' ? 'cliente' : tipoCliente;
+  const selectedClient = clientes.find((c) => c.id === clienteId);
+  const effectiveTipoCliente: ClientType = clientMode === 'existing' ? 'cliente' : (tipoCliente as ClientType);
   const showProductos = effectiveTipoCliente === 'convenio';
 
-  const handleCreate = () => {
-    let finalNombre = '';
-    let finalWhatsapp = '';
-    let finalClienteId = '';
-    let finalConvenioNombre: string | undefined;
+  const [isSaving, setIsSaving] = useState(false);
 
-    if (clientMode === 'existing') {
-      if (!selectedClient) {
-        toast.error('Seleccione un cliente');
-        return;
-      }
-      finalNombre = `${selectedClient.nombre} ${selectedClient.apellido}`;
-      finalWhatsapp = selectedClient.telefono;
-      finalClienteId = selectedClient.id;
-      // TODO: Determinar si el cliente pertenece a un convenio cuando se implemente Clientes_Convenios
+  const onSubmit = async (data: FormValues) => {
+    let finalClienteId = '';
+
+    if (data.clientMode === 'existing') {
+      finalClienteId = data.clienteId!;
     } else {
-      if (!nombre.trim() || !whatsapp.trim()) {
-        toast.error('Complete nombre y WhatsApp del cliente');
+      const cedulaExists = clientes.some((c) => c.cedula === data.cedula?.trim());
+      if (cedulaExists) {
+        toast.error('Ya existe un cliente registrado con esta cédula o RUC');
+        form.setError('cedula', { type: 'manual', message: 'Cédula ya registrada' });
         return;
       }
-      finalNombre = nombre.trim();
-      finalWhatsapp = whatsapp.trim();
-      finalClienteId = `new-${Date.now()}`;
-      if (tipoCliente === 'convenio') {
-        if (!convenioId) {
-          toast.error('Seleccione un convenio');
+
+      setIsSaving(true);
+      try {
+        let createRes;
+        if (data.tipoCliente === 'convenio') {
+          createRes = await apiFetch(`/convenios/${data.convenioId}/clientes/nuevo`, {
+            method: 'POST',
+            body: JSON.stringify({ 
+              cedula: data.cedula, 
+              nombre: data.nombre, 
+              apellido: data.apellido, 
+              telefono: data.whatsapp 
+            })
+          });
+        } else {
+          createRes = await apiFetch('/clientes', {
+            method: 'POST',
+            body: JSON.stringify({ 
+              cedula: data.cedula, 
+              nombre: data.nombre, 
+              apellido: data.apellido, 
+              telefono: data.whatsapp, 
+              id_tipo_cliente: 1 
+            }) // 1 = Frecuente
+          });
+        }
+
+        if (!createRes.ok) {
+          const errData = await createRes.json();
+          toast.error(errData.error || 'Error al registrar el nuevo cliente');
+          setIsSaving(false);
           return;
         }
-        finalConvenioNombre = mockConvenios.find((c) => c.id === convenioId)?.nombre_empresa;
+
+        const newClientData = await createRes.json();
+        finalClienteId = newClientData.id;
+        refetchClients(); // Actualizar caché de React Query
+      } catch (err) {
+        toast.error('Error de conexión al crear el cliente');
+        setIsSaving(false);
+        return;
       }
     }
 
-    if (!state.platoFuerte || !state.sopa) {
-      toast.error('Seleccione plato fuerte y sopa');
-      return;
-    }
-    if (state.cantidad < 1) {
-      toast.error('La cantidad debe ser al menos 1');
+    if (state.items.length === 0) {
+      toast.error('Agregue al menos un producto al pedido');
+      setIsSaving(false);
       return;
     }
 
-    const now = new Date();
-    const newOrder: Order = {
-      id: `ord-${Date.now()}`,
-      clienteId: finalClienteId,
-      clienteNombre: finalNombre,
-      whatsapp: finalWhatsapp,
-      tipoCliente: effectiveTipoCliente,
-      convenioNombre: finalConvenioNombre,
-      almuerzo: buildAlmuerzoLabel(state.tipoAlmuerzo, state.platoFuerte, state.sopa),
-      tipoAlmuerzo: state.tipoAlmuerzo,
-      platoFuerte: state.platoFuerte,
-      sopa: state.sopa,
-      cantidad: state.cantidad,
-      estado: 'reservado',
-      productos: state.productos,
-      observaciones: state.observaciones,
-      fecha: now.toISOString().slice(0, 10),
-      hora: now.toTimeString().slice(0, 5),
-    };
+    setIsSaving(true);
+    try {
+      const response = await apiFetch('/ordenes', {
+        method: 'POST',
+        body: JSON.stringify({
+          id_cliente: finalClienteId,
+          id_estado: 1, // 'Reservado' - Assuming ID 1
+          id_origen: 2,
+          canal_origen: 'Sistema',
+          observaciones: state.observaciones,
+          detalles: state.items.map(item => {
+            const opciones: Record<string, string> = {};
+            if (item.sopa) opciones.sopa = item.sopa;
+            if (item.segundo) opciones.segundo = item.segundo;
+            return {
+              id_producto: item.id_producto,
+              cantidad: item.cantidad,
+              precio_aplicado: item.precio,
+              opciones
+            };
+          })
+        })
+      });
 
-    onCreate(newOrder);
-    toast.success('Pedido creado correctamente');
-    onOpenChange(false);
+      if (response.ok) {
+        toast.success('Pedido registrado exitosamente en la base de datos');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onCreate({} as any); // Refresh or handle local update if needed
+        onOpenChange(false);
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const errorData: any = await response.json();
+        toast.error(`Error al guardar: ${errorData.error}`);
+      }
+    } catch (err) {
+      toast.error('Error de conexión con el servidor');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -151,90 +229,127 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
           <DialogDescription>Registre un pedido manualmente</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <form onSubmit={handleSubmit(onSubmit, () => toast.error('Complete los datos obligatorios del cliente'))} className="space-y-6 py-4">
           {/* Cliente */}
-          <div className="space-y-3 rounded-lg border border-border p-4">
-            <Label className="text-sm font-semibold text-foreground">Cliente</Label>
-            <RadioGroup
-              value={clientMode}
-              onValueChange={(v: ClientMode) => setClientMode(v)}
-              className="flex gap-6"
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="existing" id="mode-existing" />
-                <Label htmlFor="mode-existing" className="cursor-pointer">
-                  Existente
-                </Label>
+          <div className="space-y-3 rounded-lg border border-border p-4 bg-muted/5">
+            <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
+              Cliente
+              {clientMode === 'new' && <span className="text-xs font-normal text-primary bg-primary/10 px-2 py-0.5 rounded-full">Nuevo</span>}
+            </Label>
+            
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                {clientMode === 'existing' ? (
+                  <div className="space-y-1">
+                    <Controller
+                      name="clienteId"
+                      control={control}
+                      render={({ field }) => (
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger className={`bg-background ${errors.clienteId ? 'border-destructive' : ''}`}>
+                            <SelectValue placeholder={isLoading ? "Cargando clientes..." : "Buscar cliente por nombre o teléfono…"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {clientes
+                              .filter((c) => c.activo)
+                              .map((c) => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.nombre} {c.apellido} — {c.telefono || 'Sin Teléfono'}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.clienteId && <span className="text-xs text-destructive">{errors.clienteId.message}</span>}
+                  </div>
+                ) : (
+                  <div className="h-10 flex items-center px-3 border rounded-md bg-muted/20 text-sm text-muted-foreground">
+                    Completando datos de nuevo cliente...
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="new" id="mode-new" />
-                <Label htmlFor="mode-new" className="cursor-pointer">
-                  Nuevo
-                </Label>
-              </div>
-            </RadioGroup>
+              <Button
+                type="button"
+                variant={clientMode === 'existing' ? 'default' : 'destructive'}
+                size="icon"
+                className="shrink-0"
+                onClick={() => {
+                  setValue('clientMode', clientMode === 'existing' ? 'new' : 'existing');
+                  setValue('clienteId', '');
+                }}
+                title={clientMode === 'existing' ? 'Crear Nuevo Cliente' : 'Cancelar creación'}
+              >
+                {clientMode === 'existing' ? <UserPlus className="h-4 w-4" /> : <X className="h-4 w-4" />}
+              </Button>
+            </div>
 
-            {clientMode === 'existing' ? (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Seleccionar Cliente</Label>
-                <Select value={clienteId} onValueChange={setClienteId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Buscar cliente…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockClients
-                      .filter((c) => c.activo)
-                      .map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.nombre} {c.apellido} — {c.telefono}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2">
+            {clientMode === 'new' && (
+              <div className="grid gap-4 md:grid-cols-2 pt-2 animate-in slide-in-from-top-2 duration-300">
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label className="text-xs text-muted-foreground">Cédula *</Label>
+                  <Input {...form.register('cedula')} placeholder="Ej: 1712345678" maxLength={13} className={`bg-background ${errors.cedula ? 'border-destructive' : ''}`} />
+                  {errors.cedula && <span className="text-xs text-destructive">{errors.cedula.message}</span>}
+                </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Nombre</Label>
-                  <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
+                  <Label className="text-xs text-muted-foreground">Nombre *</Label>
+                  <Input {...form.register('nombre')} placeholder="Ej: Juan" className={`bg-background ${errors.nombre ? 'border-destructive' : ''}`} />
+                  {errors.nombre && <span className="text-xs text-destructive">{errors.nombre.message}</span>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Apellido *</Label>
+                  <Input {...form.register('apellido')} placeholder="Ej: Pérez" className={`bg-background ${errors.apellido ? 'border-destructive' : ''}`} />
+                  {errors.apellido && <span className="text-xs text-destructive">{errors.apellido.message}</span>}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">WhatsApp</Label>
-                  <Input
-                    value={whatsapp}
-                    onChange={(e) => setWhatsapp(e.target.value)}
-                    placeholder="+593..."
-                  />
+                  <Input {...form.register('whatsapp')} placeholder="099..." className="bg-background" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Tipo</Label>
-                  <Select value={tipoCliente} onValueChange={(v: ClientType) => setTipoCliente(v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cliente">Cliente</SelectItem>
-                      <SelectItem value="convenio">Convenio</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-xs text-muted-foreground">Tipo de Cliente</Label>
+                  <Controller
+                    name="tipoCliente"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={(v) => {
+                        field.onChange(v);
+                        if (v === 'cliente') setValue('convenioId', '');
+                      }}>
+                        <SelectTrigger className="bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cliente">Cliente Frecuente</SelectItem>
+                          <SelectItem value="convenio">Empresa / Convenio</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                 </div>
                 {tipoCliente === 'convenio' && (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Convenio</Label>
-                    <Select value={convenioId} onValueChange={setConvenioId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mockConvenios
-                          .filter((c) => c.activo)
-                          .map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.nombre_empresa}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-1.5 animate-in fade-in">
+                    <Label className="text-xs text-muted-foreground">Seleccione el Convenio</Label>
+                    <Controller
+                      name="convenioId"
+                      control={control}
+                      render={({ field }) => (
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger className={`bg-background ${errors.convenioId ? 'border-destructive' : ''}`}>
+                            <SelectValue placeholder={isLoading ? "Cargando..." : "Seleccionar"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {convenios
+                              .filter((c) => c.activo)
+                              .map((c) => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.nombre_empresa}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.convenioId && <span className="text-xs text-destructive">{errors.convenioId.message}</span>}
                   </div>
                 )}
               </div>
@@ -242,14 +357,16 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
           </div>
 
           <OrderFormFields state={state} onChange={setState} showProductos={showProductos} />
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleCreate}>Crear Pedido</Button>
-        </DialogFooter>
+          
+          <DialogFooter className="pt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? 'Guardando...' : 'Crear Pedido'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -28,6 +28,7 @@ import { Plus, Pencil, Users, Building2, Mail, Phone, CalendarDays, Trash2, Sear
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { differenceInYears } from 'date-fns';
 
 export default function Convenios() {
   const [convenios, setConvenios] = useState<Convenio[]>([]);
@@ -72,7 +73,7 @@ export default function Convenios() {
   const fetchConvenios = async () => {
     setIsLoading(true);
     try {
-      const response = await apiFetch('http://localhost:3001/api/convenios');
+      const response = await apiFetch('/convenios');
       const data = await response.json();
       if (response.ok) setConvenios(data);
     } catch (err) { toast.error('Error de conexión'); }
@@ -82,14 +83,14 @@ export default function Convenios() {
   const fetchAssociatedClients = async (id: string) => {
     setIsLoadingClients(true);
     try {
-      const response = await apiFetch(`http://localhost:3001/api/convenios/${id}/clientes`);
+      const response = await apiFetch(`/convenios/${id}/clientes`);
       if (response.ok) setAssociatedClients(await response.json());
     } finally { setIsLoadingClients(false); }
   };
 
   const fetchAllClientsForSelection = async () => {
     try {
-      const response = await apiFetch('http://localhost:3001/api/clientes');
+      const response = await apiFetch('/clientes');
       if (response.ok) setAvailableClients(await response.json());
     } catch (err) { console.error(err); }
   };
@@ -126,7 +127,7 @@ export default function Convenios() {
     }
     setIsSaving(true);
     try {
-      const url = editingConvenio ? `http://localhost:3001/api/convenios/${editingConvenio.id}` : 'http://localhost:3001/api/convenios';
+      const url = editingConvenio ? `/convenios/${editingConvenio.id}` : '/convenios';
       const method = editingConvenio ? 'PUT' : 'POST';
       const response = await apiFetch(url, { method, body: JSON.stringify(formData) });
       const data = await response.json();
@@ -142,7 +143,7 @@ export default function Convenios() {
   const handleAddClient = async (clientId: string) => {
     if (!editingConvenio) return;
     try {
-      const response = await apiFetch(`http://localhost:3001/api/convenios/${editingConvenio.id}/clientes`, {
+      const response = await apiFetch(`/convenios/${editingConvenio.id}/clientes`, {
         method: 'POST', body: JSON.stringify({ id_cliente: clientId })
       });
       if (response.ok) {
@@ -163,7 +164,7 @@ export default function Convenios() {
     if (!editingConvenio) return;
     setIsSaving(true);
     try {
-      const response = await apiFetch(`http://localhost:3001/api/convenios/${editingConvenio.id}/clientes/nuevo`, {
+      const response = await apiFetch(`/convenios/${editingConvenio.id}/clientes/nuevo`, {
         method: 'POST',
         body: JSON.stringify(newClientData)
       });
@@ -181,7 +182,7 @@ export default function Convenios() {
   const handleRemoveClient = async (clientId: string) => {
     if (!editingConvenio) return;
     try {
-      const response = await apiFetch(`http://localhost:3001/api/convenios/${editingConvenio.id}/clientes/${clientId}`, { method: 'DELETE' });
+      const response = await apiFetch(`/convenios/${editingConvenio.id}/clientes/${clientId}`, { method: 'DELETE' });
       if (response.ok) {
         toast.success('Retirado');
         setAssociatedClients(associatedClients.filter(c => c.id !== clientId));
@@ -197,7 +198,7 @@ export default function Convenios() {
 
   const confirmToggle = async (id: string, newState: boolean) => {
     try {
-      const response = await apiFetch(`http://localhost:3001/api/convenios/${id}`, { method: 'PUT', body: JSON.stringify({ activo: newState }) });
+      const response = await apiFetch(`/convenios/${id}`, { method: 'PUT', body: JSON.stringify({ activo: newState }) });
       if (response.ok) {
         const data = await response.json();
         setConvenios(convenios.map(c => c.id === id ? data : c));
@@ -216,12 +217,13 @@ export default function Convenios() {
       const inicio = convenio.fecha_inicio || '';
       const fin = convenio.fecha_caducidad || '';
       
-      // Cálculo de años simple
+      // Cálculo de años
       let años = 1;
       if (inicio && fin) {
         const d1 = new Date(inicio);
         const d2 = new Date(fin);
-        años = Math.round(Math.abs(d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24 * 365));
+        años = Math.abs(differenceInYears(d2, d1));
+        if (años === 0) años = 1; // Mínimo 1 año para mostrar en contrato
       }
 
       const contenido = `

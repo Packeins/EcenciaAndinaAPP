@@ -56,7 +56,7 @@ export default function Perfil() {
 
     setIsSavingData(true);
     try {
-      const response = await apiFetch('http://localhost:3001/api/empleados/perfil', {
+      const response = await apiFetch('/empleados/perfil', {
         method: 'PUT',
         body: JSON.stringify(formData),
       });
@@ -114,7 +114,7 @@ export default function Perfil() {
 
     setIsSavingPassword(true);
     try {
-      const response = await apiFetch('http://localhost:3001/api/empleados/perfil/password', {
+      const response = await apiFetch('/empleados/perfil/password', {
         method: 'PUT',
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,

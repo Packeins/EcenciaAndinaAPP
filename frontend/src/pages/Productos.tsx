@@ -82,8 +82,8 @@ export default function Productos() {
     setIsLoading(true);
     try {
       const [prodRes, catRes] = await Promise.all([
-        apiFetch('http://localhost:3001/api/productos'),
-        apiFetch('http://localhost:3001/api/categorias')
+        apiFetch('/productos'),
+        apiFetch('/categorias')
       ]);
       
       if (prodRes.ok) setProducts(await prodRes.json());
@@ -125,7 +125,7 @@ export default function Productos() {
     }
     setIsSaving(true);
     try {
-      const url = editingProduct ? `http://localhost:3001/api/productos/${editingProduct.id}` : 'http://localhost:3001/api/productos';
+      const url = editingProduct ? `/productos/${editingProduct.id}` : '/productos';
       const method = editingProduct ? 'PUT' : 'POST';
       const response = await apiFetch(url, {
         method,
@@ -147,7 +147,7 @@ export default function Productos() {
 
   const toggleProductStatus = async (product: Product) => {
     try {
-      const response = await apiFetch(`http://localhost:3001/api/productos/${product.id}`, {
+      const response = await apiFetch(`/productos/${product.id}`, {
         method: 'PUT',
         body: JSON.stringify({ activo: !product.activo })
       });
@@ -175,7 +175,7 @@ export default function Productos() {
     if (!categoryForm.nombre_categoria) { toast.error('Nombre obligatorio'); return; }
     setIsSaving(true);
     try {
-      const url = editingCategory ? `http://localhost:3001/api/categorias/${editingCategory.id_categoria}` : 'http://localhost:3001/api/categorias';
+      const url = editingCategory ? `/categorias/${editingCategory.id_categoria}` : '/categorias';
       const method = editingCategory ? 'PUT' : 'POST';
       const response = await apiFetch(url, { method, body: JSON.stringify(categoryForm) });
       const data = await response.json();

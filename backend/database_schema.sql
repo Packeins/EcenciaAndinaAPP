@@ -142,6 +142,8 @@ CREATE TABLE public.Detalle_Orden (
   id_producto bigint references public.Productos(id_producto),
   cantidad int not null,
   precio_aplicado decimal(10,2) not null, -- Precio pactado al momento de la orden
+  sopa text, -- Opción de sopa elegida para el almuerzo
+  segundo text, -- Opción de segundo elegida para el almuerzo
   updated_at timestamp with time zone default now(),
   updated_by uuid
 );

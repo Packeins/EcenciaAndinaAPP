@@ -78,7 +78,7 @@ export default function Clientes() {
 
   const fetchTipos = async () => {
     try {
-      const response = await apiFetch('http://localhost:3001/api/clientes/tipos');
+      const response = await apiFetch('/clientes/tipos');
       if (response.ok) {
         const data = await response.json();
         setClientTypes(data);
@@ -92,7 +92,7 @@ export default function Clientes() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiFetch('http://localhost:3001/api/clientes');
+      const response = await apiFetch('/clientes');
       const data = await response.json();
 
       if (response.ok) {
@@ -162,7 +162,7 @@ export default function Clientes() {
     try {
       if (editingClient) {
         // ACTUALIZAR
-        const response = await apiFetch(`http://localhost:3001/api/clientes/${editingClient.id}`, {
+        const response = await apiFetch(`/clientes/${editingClient.id}`, {
           method: 'PUT',
           body: JSON.stringify(formData),
         });
@@ -177,7 +177,7 @@ export default function Clientes() {
         }
       } else {
         // CREAR
-        const response = await apiFetch('http://localhost:3001/api/clientes', {
+        const response = await apiFetch('/clientes', {
           method: 'POST',
           body: JSON.stringify(formData),
         });
@@ -211,7 +211,7 @@ export default function Clientes() {
 
   const confirmToggle = async (id: string, newState: boolean) => {
     try {
-      const response = await apiFetch(`http://localhost:3001/api/clientes/${id}`, {
+      const response = await apiFetch(`/clientes/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ activo: newState }),
       });
@@ -574,7 +574,7 @@ export default function Clientes() {
                     onClick={async () => {
                       if (confirm(`¿Quitar a ${editingClient.nombre} del convenio ${editingClient.convenio?.nombre}?`)) {
                         try {
-                          const res = await apiFetch(`http://localhost:3001/api/clientes/${editingClient.id}/convenio`, {
+                          const res = await apiFetch(`/clientes/${editingClient.id}/convenio`, {
                             method: 'DELETE'
                           });
                           if (res.ok) {
