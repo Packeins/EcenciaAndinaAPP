@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Order } from '@/types';
-import { buildAlmuerzoLabel } from '@/data/mockData';
+import { apiFetch } from '@/lib/api';
 import {
   Dialog,
   DialogContent,
@@ -11,58 +10,87 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { ClientTypeBadge } from './ClientTypeBadge';
+import { Badge } from '@/components/ui/badge';
 import { OrderFormFields, OrderFormState } from './OrderFormFields';
 import { toast } from 'sonner';
 
 interface EditOrderDialogProps {
-  order: Order | null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+  order: any | null; // using any since the shape comes from the GET response
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (order: Order) => void;
+  onSave: () => void;
 }
 
 export function EditOrderDialog({ order, open, onOpenChange, onSave }: EditOrderDialogProps) {
   const [state, setState] = useState<OrderFormState>({
-    tipoAlmuerzo: 'normal',
-    platoFuerte: '',
-    sopa: '',
-    cantidad: 1,
+    items: [],
     observaciones: '',
-    productos: [],
   });
 
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
-    if (order) {
+    if (order && open) {
       setState({
-        tipoAlmuerzo: order.tipoAlmuerzo,
-        platoFuerte: order.platoFuerte,
-        sopa: order.sopa,
-        cantidad: order.cantidad,
-        observaciones: order.observaciones,
-        productos: order.productos,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        items: order.detalle_orden?.map((det: any) => ({
+          id_producto: det.id_producto,
+          nombre: det.productos?.nombre_producto || 'Desconocido',
+          precio: det.precio_aplicado,
+          cantidad: det.cantidad,
+          sopa: det.opciones?.sopa || '',
+          segundo: det.opciones?.segundo || '',
+          id_categoria: 0, // Not strictly needed for deleting/adding locally
+        })) || [],
+        observaciones: order.observaciones || '',
       });
     }
-  }, [order]);
+  }, [order, open]);
 
   if (!order) return null;
 
-  const isConvenio = order.tipoCliente === 'convenio';
+  const isConvenio = order.clientes?.tipos_cliente?.nombre_tipo?.toLowerCase().includes('convenio');
 
-  const handleSave = () => {
-    const updatedOrder: Order = {
-      ...order,
-      tipoAlmuerzo: state.tipoAlmuerzo,
-      platoFuerte: state.platoFuerte,
-      sopa: state.sopa,
-      almuerzo: buildAlmuerzoLabel(state.tipoAlmuerzo, state.platoFuerte, state.sopa),
-      cantidad: state.cantidad,
-      observaciones: state.observaciones,
-      productos: state.productos,
-    };
-    onSave(updatedOrder);
-    toast.success('Pedido actualizado correctamente');
-    onOpenChange(false);
+  const handleSave = async () => {
+    if (state.items.length === 0) {
+      toast.error('Agregue al menos un producto al pedido');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await apiFetch(`/ordenes/${order.id_orden}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          observaciones: state.observaciones,
+          detalles: state.items.map(item => {
+            const opciones: Record<string, string> = {};
+            if (item.sopa) opciones.sopa = item.sopa;
+            if (item.segundo) opciones.segundo = item.segundo;
+            return {
+              id_producto: item.id_producto,
+              cantidad: item.cantidad,
+              precio_aplicado: item.precio,
+              opciones
+            };
+          })
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Pedido actualizado correctamente');
+        onSave(); // Refresh list
+        onOpenChange(false);
+      } else {
+        const errorData = await response.json();
+        toast.error(`Error al guardar: ${errorData.error}`);
+      }
+    } catch (err) {
+      toast.error('Error de conexión con el servidor');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -71,7 +99,7 @@ export function EditOrderDialog({ order, open, onOpenChange, onSave }: EditOrder
         <DialogHeader>
           <DialogTitle className="text-foreground">Editar Pedido</DialogTitle>
           <DialogDescription>
-            Modifique los detalles del pedido de {order.clienteNombre}
+            Añade, elimina o modifica los productos del pedido de {order.clientes?.nombre} {order.clientes?.apellido}
           </DialogDescription>
         </DialogHeader>
 
@@ -81,35 +109,39 @@ export function EditOrderDialog({ order, open, onOpenChange, onSave }: EditOrder
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label className="text-xs text-muted-foreground">Cliente</Label>
-                <p className="font-medium text-foreground">{order.clienteNombre}</p>
+                <p className="font-medium text-foreground">{order.clientes?.nombre} {order.clientes?.apellido}</p>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">WhatsApp</Label>
-                <p className="font-medium text-foreground">{order.whatsapp}</p>
+                <p className="font-medium text-foreground">{order.clientes?.telefono || 'N/A'}</p>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Tipo de Cliente</Label>
                 <div className="mt-1">
-                  <ClientTypeBadge type={order.tipoCliente} />
+                  <Badge variant="outline" className="w-fit bg-primary/5">
+                    {order.clientes?.tipos_cliente?.nombre_tipo || 'Cliente'}
+                  </Badge>
                 </div>
               </div>
-              {order.convenioNombre && (
+              {isConvenio && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Convenio</Label>
-                  <p className="font-medium text-foreground">{order.convenioNombre}</p>
+                  <Label className="text-xs text-muted-foreground">Detalle Convenio</Label>
+                  <p className="font-medium text-foreground">{order.clientes?.tipos_cliente?.nombre_tipo}</p>
                 </div>
               )}
             </div>
           </div>
 
-          <OrderFormFields state={state} onChange={setState} showProductos={isConvenio} />
+          <OrderFormFields state={state} onChange={setState} showProductos={true} />
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
             Cancelar
           </Button>
-          <Button onClick={handleSave}>Guardar Cambios</Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

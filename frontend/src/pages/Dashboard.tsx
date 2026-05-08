@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { mockDashboardMetrics, mockConsumosPorDia, mockConsumosPorConvenio } from '@/data/mockData';
 import { UtensilsCrossed, CalendarDays, Building2, Users } from 'lucide-react';
 import {
@@ -15,13 +16,7 @@ import {
   Legend,
 } from 'recharts';
 
-const CHART_COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
-];
+const CHART_COLORS = ['#2F4D49', '#BF5D30', '#C2803A', '#61603C', '#7A402E'];
 
 const metrics = [
   {
@@ -53,25 +48,33 @@ const metrics = [
 export default function Dashboard() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">Resumen de actividad del sistema</p>
+      <div className="space-y-1">
+        <h1 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-cafe to-terracota">
+          Dashboard
+        </h1>
+        <p className="text-muted-foreground text-lg">Bienvenido al panel de control de Ecencia Andina</p>
       </div>
 
       {/* Metrics Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {metrics.map((metric) => (
-          <Card key={metric.title} className="border-border">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-foreground">{metric.title}</CardTitle>
-              <metric.icon className="h-5 w-5 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">{metric.value}</div>
-              <p className="text-xs text-muted-foreground">{metric.description}</p>
-            </CardContent>
-          </Card>
-        ))}
+        {metrics.map((metric, index) => {
+          const colors = ['border-l-primary', 'border-l-terracota', 'border-l-oro', 'border-l-secondary'];
+          const bgColors = ['bg-primary/5', 'bg-terracota/5', 'bg-oro/5', 'bg-secondary/5'];
+          const iconColors = ['text-primary', 'text-terracota', 'text-oro', 'text-secondary'];
+          
+          return (
+            <Card key={metric.title} className={cn("border-border shadow-sm border-l-4", colors[index % colors.length], bgColors[index % bgColors.length])}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-bold text-cafe uppercase tracking-wider">{metric.title}</CardTitle>
+                <metric.icon className={cn("h-5 w-5", iconColors[index % iconColors.length])} />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-black text-foreground">{metric.value}</div>
+                <p className="text-xs text-muted-foreground font-medium">{metric.description}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Charts */}
@@ -96,7 +99,7 @@ export default function Dashboard() {
                       borderRadius: '8px',
                     }}
                   />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="value" fill="#2F4D49" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

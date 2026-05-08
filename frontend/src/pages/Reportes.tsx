@@ -60,9 +60,11 @@ export default function Reportes() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Reportes</h1>
-        <p className="text-muted-foreground">Generación de reportes de consumo</p>
+      <div className="space-y-1">
+        <h1 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-cafe to-terracota">
+          Reportes y Estadísticas
+        </h1>
+        <p className="text-muted-foreground text-lg">Generación de informes de consumo y facturación</p>
       </div>
 
       {/* Filters */}
@@ -115,7 +117,7 @@ export default function Reportes() {
               </Select>
             </div>
             <div className="flex items-end">
-              <Button onClick={handleGenerateReport} className="w-full">
+              <Button onClick={handleGenerateReport} className="w-full bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20">
                 Generar Reporte
               </Button>
             </div>
@@ -155,10 +157,10 @@ export default function Reportes() {
             <div className="rounded-lg border border-border">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-accent/50">
-                    <TableHead>Colaborador</TableHead>
-                    <TableHead className="text-center">Cantidad de Almuerzos</TableHead>
-                    <TableHead className="text-right">Total Consumido</TableHead>
+                  <TableRow className="bg-secondary/10 hover:bg-secondary/10">
+                    <TableHead className="text-cafe font-bold">Colaborador</TableHead>
+                    <TableHead className="text-center text-cafe font-bold">Cantidad de Almuerzos</TableHead>
+                    <TableHead className="text-right text-cafe font-bold">Total Consumido</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

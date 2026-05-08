@@ -1,27 +1,21 @@
 import { useSyncExternalStore } from 'react';
-import { TipoAlmuerzo } from '@/types';
-import {
-  tiposAlmuerzo as initialTipos,
-  platosFuertes as initialPlatos,
-  sopas as initialSopas,
-} from '@/data/mockData';
-
-export interface TipoAlmuerzoItem {
-  value: TipoAlmuerzo;
-  label: string;
-  precio: number;
-}
 
 interface MenuState {
-  tipos: TipoAlmuerzoItem[];
-  platos: string[];
-  sopas: string[];
+  dailyMenu: {
+    sopas: string[];
+    segundos: string[];
+    guarniciones: string[];
+    image: string | null;
+  };
 }
 
 let state: MenuState = {
-  tipos: [...initialTipos],
-  platos: [...initialPlatos],
-  sopas: [...initialSopas],
+  dailyMenu: {
+    sopas: ['', ''], // Por defecto 2 opciones como pedía el usuario
+    segundos: ['', ''],
+    guarniciones: [''],
+    image: null,
+  },
 };
 
 const listeners = new Set<() => void>();
@@ -37,52 +31,44 @@ const getSnapshot = () => state;
 
 export const menuStore = {
   get: () => state,
-  setTipoPrecio: (value: TipoAlmuerzo, precio: number) => {
+  
+  setSopas: (sopas: string[]) => {
     state = {
       ...state,
-      tipos: state.tipos.map((t) => (t.value === value ? { ...t, precio } : t)),
+      dailyMenu: { ...state.dailyMenu, sopas },
     };
     emit();
   },
-  setTipoLabel: (value: TipoAlmuerzo, label: string) => {
+
+  setSegundos: (segundos: string[]) => {
     state = {
       ...state,
-      tipos: state.tipos.map((t) => (t.value === value ? { ...t, label } : t)),
+      dailyMenu: { ...state.dailyMenu, segundos },
     };
     emit();
   },
-  setPlato: (index: number, value: string) => {
+
+  setGuarniciones: (guarniciones: string[]) => {
     state = {
       ...state,
-      platos: state.platos.map((p, i) => (i === index ? value : p)),
+      dailyMenu: { ...state.dailyMenu, guarniciones },
     };
     emit();
   },
-  setSopa: (index: number, value: string) => {
+
+  setDailyImage: (image: string | null) => {
     state = {
       ...state,
-      sopas: state.sopas.map((s, i) => (i === index ? value : s)),
+      dailyMenu: { ...state.dailyMenu, image },
     };
-    emit();
-  },
-  addPlato: (value: string) => {
-    state = { ...state, platos: [...state.platos, value] };
-    emit();
-  },
-  addSopa: (value: string) => {
-    state = { ...state, sopas: [...state.sopas, value] };
-    emit();
-  },
-  removePlato: (index: number) => {
-    state = { ...state, platos: state.platos.filter((_, i) => i !== index) };
-    emit();
-  },
-  removeSopa: (index: number) => {
-    state = { ...state, sopas: state.sopas.filter((_, i) => i !== index) };
     emit();
   },
 };
 
 export function useMenu() {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const currentState = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return {
+    ...currentState,
+    ...currentState.dailyMenu,
+  };
 }

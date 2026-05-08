@@ -84,35 +84,53 @@ export function Sidebar() {
   const filteredNavItems = navItems.filter((item) => user && item.roles.includes(user.rol));
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-border bg-card">
+    <aside className="flex h-screen w-64 flex-col border-r border-border bg-background">
       {/* Logo */}
-      <div className="flex items-center gap-3 border-b border-border px-6 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-          <UtensilsCrossed className="h-6 w-6 text-primary-foreground" />
+      <div className="flex items-center gap-3 border-b border-border px-6 py-5 bg-accent/20">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-lg shadow-primary/20">
+          <UtensilsCrossed className="h-6 w-6 text-white" />
         </div>
         <div>
-          <h1 className="font-semibold text-foreground">ECencia Andina</h1>
-          <p className="text-xs text-muted-foreground">Sistema de Almuerzos</p>
+          <h1 className="font-bold text-cafe tracking-tight">ECencia Andina</h1>
+          <p className="text-[10px] uppercase tracking-widest text-secondary font-bold">Tradición Natural</p>
         </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {filteredNavItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-              location.pathname === item.path
-                ? 'bg-primary text-primary-foreground'
-                : 'text-foreground hover:bg-accent',
-            )}
-          >
-            {item.icon}
-            {item.label}
-          </Link>
-        ))}
+        {filteredNavItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={cn(
+                'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                isActive
+                  ? 'bg-cafe text-white shadow-md shadow-cafe/20 scale-[1.02]'
+                  : 'text-muted-foreground hover:bg-cafe hover:text-white hover:shadow-sm'
+              )}
+            >
+              <div className={cn(
+                "transition-colors duration-200",
+                isActive ? "text-white" : "group-hover:text-white",
+                !isActive && (
+                  item.label === 'Dashboard' ? 'text-primary' :
+                  item.label === 'Pedidos' ? 'text-terracota' :
+                  item.label === 'Menú Diario' ? 'text-oro' :
+                  item.label === 'Reportes' ? 'text-secondary' :
+                  item.label === 'Convenios' ? 'text-primary' :
+                  item.label === 'Clientes' ? 'text-terracota' :
+                  item.label === 'Empleados' ? 'text-oro' :
+                  item.label === 'Productos' ? 'text-secondary' : ''
+                )
+              )}>
+                {item.icon}
+              </div>
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
 
       {/* User Info & Logout */}

@@ -82,8 +82,8 @@ export default function Productos() {
     setIsLoading(true);
     try {
       const [prodRes, catRes] = await Promise.all([
-        apiFetch('http://localhost:3001/api/productos'),
-        apiFetch('http://localhost:3001/api/categorias')
+        apiFetch('/productos'),
+        apiFetch('/categorias')
       ]);
       
       if (prodRes.ok) setProducts(await prodRes.json());
@@ -125,7 +125,7 @@ export default function Productos() {
     }
     setIsSaving(true);
     try {
-      const url = editingProduct ? `http://localhost:3001/api/productos/${editingProduct.id}` : 'http://localhost:3001/api/productos';
+      const url = editingProduct ? `/productos/${editingProduct.id}` : '/productos';
       const method = editingProduct ? 'PUT' : 'POST';
       const response = await apiFetch(url, {
         method,
@@ -147,7 +147,7 @@ export default function Productos() {
 
   const toggleProductStatus = async (product: Product) => {
     try {
-      const response = await apiFetch(`http://localhost:3001/api/productos/${product.id}`, {
+      const response = await apiFetch(`/productos/${product.id}`, {
         method: 'PUT',
         body: JSON.stringify({ activo: !product.activo })
       });
@@ -175,7 +175,7 @@ export default function Productos() {
     if (!categoryForm.nombre_categoria) { toast.error('Nombre obligatorio'); return; }
     setIsSaving(true);
     try {
-      const url = editingCategory ? `http://localhost:3001/api/categorias/${editingCategory.id_categoria}` : 'http://localhost:3001/api/categorias';
+      const url = editingCategory ? `/categorias/${editingCategory.id_categoria}` : '/categorias';
       const method = editingCategory ? 'PUT' : 'POST';
       const response = await apiFetch(url, { method, body: JSON.stringify(categoryForm) });
       const data = await response.json();
@@ -198,11 +198,11 @@ export default function Productos() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Productos y Categorías</h1>
-          <p className="text-muted-foreground">Administre su catálogo de productos</p>
-        </div>
+      <div className="space-y-1">
+        <h1 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-cafe to-terracota">
+          Catálogo de Productos
+        </h1>
+        <p className="text-muted-foreground text-lg">Gestione los productos y categorías de Ecencia Andina</p>
       </div>
 
       <Tabs defaultValue="products" className="w-full">
@@ -217,19 +217,23 @@ export default function Productos() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input placeholder="Buscar producto..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
-            <Button onClick={() => handleOpenProduct()} className="gap-2"><Plus className="h-4 w-4" /> Nuevo Producto</Button>
+            <Button onClick={() => handleOpenProduct()} className="bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20 h-11 px-6 rounded-xl font-bold transition-all hover:scale-[1.02]">
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Producto
+            </Button>
           </div>
 
           <Card>
             <CardContent className="p-0">
+            <div className="rounded-lg border border-border">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Producto</TableHead>
-                    <TableHead>Categoría</TableHead>
-                    <TableHead>Precio</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
+                  <TableRow className="bg-secondary/10 hover:bg-secondary/10">
+                    <TableHead className="text-cafe font-bold">Producto</TableHead>
+                    <TableHead className="text-cafe font-bold">Categoría</TableHead>
+                    <TableHead className="text-cafe font-bold">Precio</TableHead>
+                    <TableHead className="text-cafe font-bold">Estado</TableHead>
+                    <TableHead className="text-right text-cafe font-bold">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -269,6 +273,7 @@ export default function Productos() {
                   ))}
                 </TableBody>
               </Table>
+            </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -340,7 +345,7 @@ export default function Productos() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setProductDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={saveProduct} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar Producto'}</Button>
+            <Button onClick={saveProduct} disabled={isSaving} className="bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20">{isSaving ? 'Guardando...' : 'Guardar Producto'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -357,7 +362,7 @@ export default function Productos() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={saveCategory} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar Categoría'}</Button>
+            <Button onClick={saveCategory} disabled={isSaving} className="bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20">{isSaving ? 'Guardando...' : 'Guardar Categoría'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

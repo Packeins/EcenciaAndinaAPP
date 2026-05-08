@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { UtensilsCrossed, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { PasswordRequirements } from '@/components/auth/PasswordRequirements';
+import { API_BASE_URL } from '@/lib/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -50,7 +51,7 @@ export default function Login() {
         setRecoveryToken(token);
 
         // Obtener el nombre del usuario con este token
-        fetch('http://localhost:3001/api/empleados/perfil', {
+        fetch(`${API_BASE_URL}/empleados/perfil`, {
           headers: { Authorization: `Bearer ${token}` },
         })
           .then((res) => res.json())
@@ -112,7 +113,7 @@ export default function Login() {
 
     setIsResetting(true);
     try {
-      const response = await fetch('http://localhost:3001/api/empleados/perfil/password', {
+      const response = await fetch(`${API_BASE_URL}/empleados/perfil/password`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

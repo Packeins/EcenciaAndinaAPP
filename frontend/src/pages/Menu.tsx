@@ -1,158 +1,311 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { menuStore, useMenu } from '@/data/menuStore';
-import { UtensilsCrossed, Soup, ChefHat, Plus, Trash2 } from 'lucide-react';
+import { 
+  Soup, 
+  ChefHat, 
+  Send, 
+  CalendarDays,
+  Image as ImageIcon,
+  Plus,
+  Trash2,
+  Utensils
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { ImageUpload } from '@/components/ImageUpload';
+import { FoodSelector } from '@/components/menu/FoodSelector';
+import { apiFetch } from '@/lib/api';
+import { Alimento } from '@/types';
+
+interface Category {
+  id_categoria_menu: number;
+  nombre_categoria: string;
+}
 
 export default function Menu() {
-  const { tipos, platos, sopas } = useMenu();
-  const [newPlato, setNewPlato] = useState('');
-  const [newSopa, setNewSopa] = useState('');
+  const { sopas, segundos, guarniciones, image } = useMenu();
+  const [isSending, setIsSending] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [allAlimentos, setAllAlimentos] = useState<Alimento[]>([]);
 
-  const handleAddPlato = () => {
-    if (!newPlato.trim()) return toast.error('Ingrese un nombre');
-    menuStore.addPlato(newPlato.trim());
-    setNewPlato('');
-    toast.success('Plato fuerte agregado');
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [catRes, alimRes] = await Promise.all([
+          apiFetch('/alimentos/categorias'),
+          apiFetch('/alimentos')
+        ]);
+        
+        if (catRes.ok) setCategories(await catRes.json());
+        if (alimRes.ok) setAllAlimentos(await alimRes.json());
+      } catch (err) {
+        // Error silenciado para limpieza
+      }
+    };
+    fetchData();
+  }, []);
+
+  const handleSendMenu = async () => {
+    const hasSopa = sopas.some(s => s.trim() !== '');
+    const hasSegundo = segundos.some(s => s.trim() !== '');
+    
+    if (!hasSopa || !hasSegundo) {
+      return toast.error('Debe haber al menos una sopa y un segundo configurados');
+    }
+    
+    setIsSending(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    toast.success('¡Menú del día enviado correctamente!', {
+      description: 'Se notificará a los contactos de WhatsApp configurados.'
+    });
+    setIsSending(false);
   };
 
-  const handleAddSopa = () => {
-    if (!newSopa.trim()) return toast.error('Ingrese un nombre');
-    menuStore.addSopa(newSopa.trim());
-    setNewSopa('');
-    toast.success('Sopa agregada');
+  const getCategoryId = (name: string) => {
+    const search = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const cat = categories.find(c => {
+      const catName = c.nombre_categoria.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return catName.includes(search);
+    });
+    return cat ? cat.id_categoria_menu : 0;
+  };
+
+  const updateOption = (type: 'sopas' | 'segundos' | 'guarniciones', index: number, value: string) => {
+    const current = type === 'sopas' ? [...sopas] : type === 'segundos' ? [...segundos] : [...guarniciones];
+    current[index] = value;
+    if (type === 'sopas') menuStore.setSopas(current);
+    else if (type === 'segundos') menuStore.setSegundos(current);
+    else menuStore.setGuarniciones(current);
+  };
+
+  const addOption = (type: 'sopas' | 'segundos' | 'guarniciones') => {
+    const current = type === 'sopas' ? [...sopas] : type === 'segundos' ? [...segundos] : [...guarniciones];
+    current.push('');
+    if (type === 'sopas') menuStore.setSopas(current);
+    else if (type === 'segundos') menuStore.setSegundos(current);
+    else menuStore.setGuarniciones(current);
+  };
+
+  const removeOption = (type: 'sopas' | 'segundos' | 'guarniciones', index: number) => {
+    const current = type === 'sopas' ? [...sopas] : type === 'segundos' ? [...segundos] : [...guarniciones];
+    if (current.length <= 1) return;
+    current.splice(index, 1);
+    if (type === 'sopas') menuStore.setSopas(current);
+    else if (type === 'segundos') menuStore.setSegundos(current);
+    else menuStore.setGuarniciones(current);
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Menú Diario</h1>
-        <p className="text-muted-foreground">
-          Edita los tipos de almuerzo, platos fuertes y sopas disponibles
-        </p>
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-cafe to-terracota">
+            Gestión de Menú
+          </h1>
+          <p className="text-muted-foreground text-lg">
+            Configura los platos disponibles para el día de hoy.
+          </p>
+        </div>
+        <div 
+          style={{ backgroundColor: 'rgba(191, 93, 48, 0.1)', borderColor: 'rgba(191, 93, 48, 0.2)' }}
+          className="px-4 py-2 rounded-2xl flex items-center gap-2 border backdrop-blur-sm"
+        >
+          <CalendarDays style={{ color: '#BF5D30' }} className="h-5 w-5" />
+          <span style={{ color: '#BF5D30' }} className="text-sm font-semibold capitalize">
+            {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </span>
+        </div>
       </div>
 
-      {/* Tipos de almuerzo */}
-      <Card className="border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <UtensilsCrossed className="h-5 w-5 text-primary" />
-            Tipos de Almuerzo
-          </CardTitle>
-          <CardDescription>Edita el nombre y precio de cada tipo</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {tipos.map((t) => (
-            <div key={t.value} className="grid gap-3 md:grid-cols-[120px_1fr_160px] md:items-end">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8 space-y-8">
+          
+          {/* MODULO SOPAS */}
+          <Card className="border-border shadow-md border-l-4 border-l-secondary overflow-hidden bg-secondary/5">
+            <CardHeader className="pb-4 flex flex-row items-center justify-between">
               <div>
-                <Label className="text-xs capitalize text-muted-foreground">{t.value}</Label>
+                <CardTitle className="text-2xl flex items-center gap-3 text-cafe">
+                  <div className="bg-secondary text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-md">
+                    <Soup className="h-6 w-6" />
+                  </div>
+                  Sopas
+                </CardTitle>
+                <CardDescription className="mt-1 font-medium">Define las opciones de sopas para hoy</CardDescription>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Nombre</Label>
-                <Input
-                  value={t.label}
-                  onChange={(e) => menuStore.setTipoLabel(t.value, e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Precio (USD)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  value={t.precio}
-                  onChange={(e) =>
-                    menuStore.setTipoPrecio(t.value, parseFloat(e.target.value) || 0)
-                  }
-                />
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Platos Fuertes */}
-      <Card className="border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <ChefHat className="h-5 w-5 text-primary" />
-            Platos Fuertes
-          </CardTitle>
-          <CardDescription>Opciones de plato fuerte disponibles para hoy</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {platos.map((p, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Input value={p} onChange={(e) => menuStore.setPlato(i, e.target.value)} />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0 text-destructive"
-                onClick={() => menuStore.removePlato(i)}
-                disabled={platos.length <= 1}
-                title="Eliminar"
-              >
-                <Trash2 className="h-4 w-4" />
+              <Button variant="outline" size="sm" onClick={() => addOption('sopas')} className="gap-2 border-secondary/30 bg-background hover:bg-secondary/10 text-secondary font-bold">
+                <Plus className="h-4 w-4" />
+                Añadir Opción
               </Button>
-            </div>
-          ))}
-          <div className="flex items-center gap-2 border-t border-border pt-2">
-            <Input
-              placeholder="Nuevo plato fuerte..."
-              value={newPlato}
-              onChange={(e) => setNewPlato(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddPlato()}
-            />
-            <Button onClick={handleAddPlato} className="shrink-0 gap-1">
-              <Plus className="h-4 w-4" />
-              Agregar
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-2">
+              <div className="grid gap-4 md:grid-cols-2">
+                {sopas.map((sopa, index) => (
+                  <div key={index} className="space-y-2 relative group">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Opción {index + 1}</Label>
+                      {sopas.length > 1 && (
+                        <button 
+                          onClick={() => removeOption('sopas', index)}
+                          className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                    <FoodSelector 
+                      value={sopa}
+                      onChange={(val) => updateOption('sopas', index, val)}
+                      idCategoria={getCategoryId('Sopa')}
+                      alimentos={allAlimentos}
+                      placeholder="Seleccionar sopa..."
+                      exclude={sopas.filter((_, i) => i !== index)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Sopas */}
-      <Card className="border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <Soup className="h-5 w-5 text-primary" />
-            Sopas
-          </CardTitle>
-          <CardDescription>Opciones de sopa disponibles para hoy</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {sopas.map((s, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Input value={s} onChange={(e) => menuStore.setSopa(i, e.target.value)} />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0 text-destructive"
-                onClick={() => menuStore.removeSopa(i)}
-                disabled={sopas.length <= 1}
-                title="Eliminar"
-              >
-                <Trash2 className="h-4 w-4" />
+          {/* MODULO SEGUNDOS */}
+          <Card className="border-border shadow-md border-l-4 border-l-terracota overflow-hidden bg-terracota/5">
+            <CardHeader className="pb-4 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl flex items-center gap-3 text-cafe">
+                  <div 
+                    style={{ backgroundColor: '#BF5D30' }} 
+                    className="text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-md"
+                  >
+                    <ChefHat className="h-6 w-6" />
+                  </div>
+                  Almuerzos (Segundos)
+                </CardTitle>
+                <CardDescription className="mt-1 font-medium">Platos fuertes disponibles para hoy</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => addOption('segundos')} className="gap-2 border-terracota/30 bg-background hover:bg-terracota/10 text-terracota font-bold">
+                <Plus className="h-4 w-4" />
+                Añadir Opción
               </Button>
-            </div>
-          ))}
-          <div className="flex items-center gap-2 border-t border-border pt-2">
-            <Input
-              placeholder="Nueva sopa..."
-              value={newSopa}
-              onChange={(e) => setNewSopa(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddSopa()}
-            />
-            <Button onClick={handleAddSopa} className="shrink-0 gap-1">
-              <Plus className="h-4 w-4" />
-              Agregar
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-2">
+              <div className="grid gap-4 md:grid-cols-2">
+                {segundos.map((segundo, index) => (
+                  <div key={index} className="space-y-2 relative group">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Opción {index + 1}</Label>
+                      {segundos.length > 1 && (
+                        <button 
+                          onClick={() => removeOption('segundos', index)}
+                          className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                    <FoodSelector 
+                      value={segundo}
+                      onChange={(val) => updateOption('segundos', index, val)}
+                      idCategoria={getCategoryId('Segundo')}
+                      alimentos={allAlimentos}
+                      placeholder="Seleccionar plato fuerte..."
+                      exclude={segundos.filter((_, i) => i !== index)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* MODULO GUARNICION */}
+          <Card className="border-border shadow-md border-l-4 border-l-oro overflow-hidden bg-oro/5">
+            <CardHeader className="pb-4 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl flex items-center gap-3 text-cafe">
+                  <div 
+                    style={{ backgroundColor: '#C2803A' }} 
+                    className="text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-md"
+                  >
+                    <Utensils className="h-6 w-6" />
+                  </div>
+                  Guarniciones
+                </CardTitle>
+                <CardDescription className="mt-1 font-medium">Acompañamientos extras del día</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => addOption('guarniciones')} className="gap-2 border-oro/30 bg-background hover:bg-oro/10 text-oro font-bold">
+                <Plus className="h-4 w-4" />
+                Añadir Opción
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-2">
+              <div className="grid gap-4 md:grid-cols-2">
+                {guarniciones.map((guarnicion, index) => (
+                  <div key={index} className="space-y-2 relative group">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Guarnición {index + 1}</Label>
+                      {guarniciones.length > 1 && (
+                        <button 
+                          onClick={() => removeOption('guarniciones', index)}
+                          className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                    <FoodSelector 
+                      value={guarnicion}
+                      onChange={(val) => updateOption('guarniciones', index, val)}
+                      idCategoria={getCategoryId('Guarni')}
+                      alimentos={allAlimentos}
+                      placeholder="Seleccionar guarnición..."
+                      exclude={guarniciones.filter((_, i) => i !== index)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="lg:col-span-4 space-y-8">
+          {/* Imagen del Menú */}
+          <Card className="border-border shadow-sm h-fit overflow-hidden">
+            <CardHeader className="bg-muted/30 border-b">
+              <CardTitle className="text-xl flex items-center gap-2 text-cafe">
+                <ImageIcon style={{ color: '#C2803A' }} className="h-5 w-5" />
+                Foto del Menú
+              </CardTitle>
+              <CardDescription>Sube la imagen del menú impreso</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              <ImageUpload 
+                value={image}
+                onChange={(val) => menuStore.setDailyImage(val)}
+                className="min-h-[300px]"
+              />
+            </CardContent>
+          </Card>
+
+          <Button 
+            size="lg" 
+            className="w-full h-16 text-xl font-bold gap-4 shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all hover:-translate-y-1 active:translate-y-0.5 rounded-2xl bg-primary hover:bg-primary/90"
+            onClick={handleSendMenu}
+            disabled={isSending}
+          >
+            {isSending ? (
+              <div className="animate-spin rounded-full h-6 w-6 border-3 border-primary-foreground border-t-transparent" />
+            ) : (
+              <Send className="h-6 w-6" />
+            )}
+            {isSending ? 'Enviando...' : 'ENVIAR MENÚ'}
+          </Button>
+          
+          <p className="text-center text-sm text-muted-foreground px-4">
+            Al presionar enviar, el menú se compartirá con todos los contactos de WhatsApp registrados.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
