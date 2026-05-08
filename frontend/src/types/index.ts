@@ -47,6 +47,17 @@ export interface Convenio {
   cupo_maximo: number;
   totalColaboradores: number;
   consumoMensual: number;
+  archivo_firmado?: string;
+}
+
+export interface ConvenioHistorial {
+  id: string;
+  id_convenio: string;
+  fecha_inicio: string;
+  fecha_caducidad: string;
+  archivo_firmado: string | null;
+  archivo_url: string | null;
+  fecha_registro: string;
 }
 
 export interface Product {
@@ -102,4 +113,10 @@ export interface DashboardMetrics {
 export interface ChartData {
   name: string;
   value: number;
+}
+
+export interface Alimento {
+  id: number;
+  nombre: string;
+  id_categoria: number;
 }

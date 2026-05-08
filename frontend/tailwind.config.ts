@@ -46,13 +46,16 @@ export default {
           foreground: 'hsl(var(--accent-foreground))',
         },
         popover: {
-          DEFAULT: 'hsl(var(--popover))',
+          DEFAULT: '#ffffff',
           foreground: 'hsl(var(--popover-foreground))',
         },
         card: {
-          DEFAULT: 'hsl(var(--card))',
+          DEFAULT: '#ffffff',
           foreground: 'hsl(var(--card-foreground))',
         },
+        cafe: 'hsl(var(--cafe))',
+        terracota: 'hsl(var(--terracota))',
+        oro: 'hsl(var(--oro))',
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar-background))',
           foreground: 'hsl(var(--sidebar-foreground))',

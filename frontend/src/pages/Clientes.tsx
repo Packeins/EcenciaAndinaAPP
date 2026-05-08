@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 import { Client } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -246,53 +247,55 @@ export default function Clientes() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
-          <p className="text-muted-foreground">Gestión de clientes registrados</p>
+        <div className="space-y-1">
+          <h1 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-cafe to-terracota">
+            Clientes
+          </h1>
+          <p className="text-muted-foreground text-lg">Administración de clientes y colaboradores de Ecencia Andina</p>
         </div>
-        <Button onClick={handleOpenNew} className="gap-2">
-          <Plus className="h-4 w-4" />
+        <Button onClick={handleOpenNew} className="gap-2 bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20 h-12 px-6 rounded-xl font-bold transition-all hover:scale-[1.02]">
+          <Plus className="h-5 w-5" />
           Nuevo Cliente
         </Button>
       </div>
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-border">
+        <Card className="border-border shadow-sm border-l-4 border-l-primary bg-primary/5">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                <User className="h-6 w-6 text-primary" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white shadow-sm">
+                <Users className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{clients.length}</p>
-                <p className="text-sm text-muted-foreground">Total Registrados</p>
+                <p className="text-3xl font-black text-foreground">{clients.length}</p>
+                <p className="text-sm font-bold text-cafe uppercase tracking-wider">Total Registrados</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border">
+        <Card className="border-border shadow-sm border-l-4 border-l-secondary bg-secondary/5">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                <User className="h-6 w-6 text-emerald-600" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-white shadow-sm">
+                <UserCheck className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{activeCount}</p>
-                <p className="text-sm text-muted-foreground">Clientes Activos</p>
+                <p className="text-3xl font-black text-foreground">{activeCount}</p>
+                <p className="text-sm font-bold text-cafe uppercase tracking-wider">Clientes Activos</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border">
+        <Card className="border-border shadow-sm border-l-4 border-l-terracota bg-terracota/5">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                <User className="h-6 w-6 text-amber-600" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-terracota text-white shadow-sm">
+                <User className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{clients.length - activeCount}</p>
-                <p className="text-sm text-muted-foreground">Clientes Inactivos</p>
+                <p className="text-3xl font-black text-foreground">{clients.length - activeCount}</p>
+                <p className="text-sm font-bold text-cafe uppercase tracking-wider">Clientes Inactivos</p>
               </div>
             </div>
           </CardContent>
@@ -371,13 +374,13 @@ export default function Clientes() {
           <div className="rounded-lg border border-border">
             <Table>
               <TableHeader>
-                <TableRow className="bg-accent/50">
-                  <TableHead>Nombre de Cliente</TableHead>
-                  <TableHead>Tipo de Cliente</TableHead>
-                  <TableHead>Cédula</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
+                <TableRow className="bg-secondary/10 hover:bg-secondary/10">
+                  <TableHead className="text-cafe font-bold">Nombre de Cliente</TableHead>
+                  <TableHead className="text-cafe font-bold">Tipo de Cliente</TableHead>
+                  <TableHead className="text-cafe font-bold">Cédula</TableHead>
+                  <TableHead className="text-cafe font-bold">Teléfono</TableHead>
+                  <TableHead className="text-cafe font-bold">Estado</TableHead>
+                  <TableHead className="text-right text-cafe font-bold">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -601,7 +604,7 @@ export default function Clientes() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
+            <Button onClick={handleSave} disabled={isSaving} className="bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20">
               {isSaving
                 ? editingClient
                   ? 'Guardando...'

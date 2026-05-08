@@ -152,15 +152,15 @@ export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Categoría</Label>
+              <Label className="text-xs text-cafe/70">Categoría</Label>
               <Select value={currentCategory} onValueChange={(v) => {
                 setCurrentCategory(v);
                 setCurrentProduct(null);
               }}>
-                <SelectTrigger className="bg-background">
+                <SelectTrigger className="bg-background text-cafe">
                   <SelectValue placeholder="Elija categoría" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white border-border shadow-xl">
                   {categories.map((c) => (
                     <SelectItem key={c.id_categoria} value={c.id_categoria.toString()}>
                       {c.nombre_categoria}
@@ -171,16 +171,16 @@ export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Producto</Label>
+              <Label className="text-xs text-cafe/70">Producto</Label>
               <Select 
                 value={currentProduct?.id?.toString() || ''} 
                 onValueChange={(v) => setCurrentProduct(allProducts.find(p => p.id.toString() === v) || null)}
                 disabled={!currentCategory}
               >
-                <SelectTrigger className="bg-background">
+                <SelectTrigger className="bg-background text-cafe">
                   <SelectValue placeholder="Elija producto" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white border-border shadow-xl">
                   {filteredProducts.map((p) => (
                     <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
                   ))}
@@ -204,7 +204,7 @@ export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
               <div className={`grid gap-4 ${showSopaField && showSegundoField ? 'md:grid-cols-2' : 'md:grid-cols-1'} p-4 bg-primary/5 rounded-xl border border-primary/10 animate-in slide-in-from-top-2 duration-300`}>
                 {showSopaField && (
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">¿Qué sopa desea?</Label>
+                    <Label className="text-xs text-cafe/70">¿Qué sopa desea?</Label>
                     <Input 
                       placeholder="Ej: Crema de Zapallo" 
                       value={currentSopa} 
@@ -215,7 +215,7 @@ export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
                 )}
                 {showSegundoField && (
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">¿Qué segundo desea?</Label>
+                    <Label className="text-xs text-cafe/70">¿Qué segundo desea?</Label>
                     <Input 
                       placeholder="Ej: Pollo al Horno" 
                       value={currentSegundo} 
@@ -230,7 +230,7 @@ export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
 
           <div className="flex items-end justify-between gap-4 pt-2">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Cantidad</Label>
+              <Label className="text-xs text-cafe/70">Cantidad</Label>
               <div className="flex items-center gap-2">
                 <Button 
                   type="button"
@@ -254,7 +254,7 @@ export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
               </div>
             </div>
 
-            <Button type="button" onClick={handleAddItem} className="gap-2 px-6 shadow-md shadow-primary/20">
+            <Button type="button" onClick={handleAddItem} className="gap-2 px-6 bg-cafe hover:bg-cafe/90 shadow-md shadow-cafe/20">
               <Plus className="h-4 w-4" />
               Agregar Producto
             </Button>

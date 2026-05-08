@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -232,9 +233,9 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
         <form onSubmit={handleSubmit(onSubmit, () => toast.error('Complete los datos obligatorios del cliente'))} className="space-y-6 py-4">
           {/* Cliente */}
           <div className="space-y-3 rounded-lg border border-border p-4 bg-muted/5">
-            <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Label className="text-sm font-semibold text-cafe flex items-center gap-2">
               Cliente
-              {clientMode === 'new' && <span className="text-xs font-normal text-primary bg-primary/10 px-2 py-0.5 rounded-full">Nuevo</span>}
+              {clientMode === 'new' && <span className="text-xs font-bold text-white bg-oro px-2 py-0.5 rounded-full shadow-sm">Nuevo</span>}
             </Label>
             
             <div className="flex items-center gap-2">
@@ -246,10 +247,10 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
                       control={control}
                       render={({ field }) => (
                         <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger className={`bg-background ${errors.clienteId ? 'border-destructive' : ''}`}>
+                          <SelectTrigger className={`bg-background text-cafe ${errors.clienteId ? 'border-destructive' : ''}`}>
                             <SelectValue placeholder={isLoading ? "Cargando clientes..." : "Buscar cliente por nombre o teléfono…"} />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-white border-border shadow-xl">
                             {clientes
                               .filter((c) => c.activo)
                               .map((c) => (
@@ -271,9 +272,9 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
               </div>
               <Button
                 type="button"
-                variant={clientMode === 'existing' ? 'default' : 'destructive'}
+                variant="default"
                 size="icon"
-                className="shrink-0"
+                className={cn("shrink-0", clientMode === 'existing' ? "bg-cafe hover:bg-cafe/90" : "bg-destructive hover:bg-destructive/90")}
                 onClick={() => {
                   setValue('clientMode', clientMode === 'existing' ? 'new' : 'existing');
                   setValue('clienteId', '');
@@ -287,26 +288,26 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
             {clientMode === 'new' && (
               <div className="grid gap-4 md:grid-cols-2 pt-2 animate-in slide-in-from-top-2 duration-300">
                 <div className="space-y-1.5 md:col-span-2">
-                  <Label className="text-xs text-muted-foreground">Cédula *</Label>
+                  <Label className="text-xs text-cafe/70">Cédula *</Label>
                   <Input {...form.register('cedula')} placeholder="Ej: 1712345678" maxLength={13} className={`bg-background ${errors.cedula ? 'border-destructive' : ''}`} />
                   {errors.cedula && <span className="text-xs text-destructive">{errors.cedula.message}</span>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Nombre *</Label>
+                  <Label className="text-xs text-cafe/70">Nombre *</Label>
                   <Input {...form.register('nombre')} placeholder="Ej: Juan" className={`bg-background ${errors.nombre ? 'border-destructive' : ''}`} />
                   {errors.nombre && <span className="text-xs text-destructive">{errors.nombre.message}</span>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Apellido *</Label>
+                  <Label className="text-xs text-cafe/70">Apellido *</Label>
                   <Input {...form.register('apellido')} placeholder="Ej: Pérez" className={`bg-background ${errors.apellido ? 'border-destructive' : ''}`} />
                   {errors.apellido && <span className="text-xs text-destructive">{errors.apellido.message}</span>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">WhatsApp</Label>
+                  <Label className="text-xs text-cafe/70">WhatsApp</Label>
                   <Input {...form.register('whatsapp')} placeholder="099..." className="bg-background" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Tipo de Cliente</Label>
+                  <Label className="text-xs text-cafe/70">Tipo de Cliente</Label>
                   <Controller
                     name="tipoCliente"
                     control={control}
@@ -315,7 +316,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
                         field.onChange(v);
                         if (v === 'cliente') setValue('convenioId', '');
                       }}>
-                        <SelectTrigger className="bg-background">
+                        <SelectTrigger className="bg-background text-cafe">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -328,7 +329,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
                 </div>
                 {tipoCliente === 'convenio' && (
                   <div className="space-y-1.5 animate-in fade-in">
-                    <Label className="text-xs text-muted-foreground">Seleccione el Convenio</Label>
+                    <Label className="text-xs text-cafe/70">Seleccione el Convenio</Label>
                     <Controller
                       name="convenioId"
                       control={control}
@@ -362,7 +363,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSaving}>
+            <Button type="submit" className="flex-1 bg-cafe hover:bg-cafe/90 h-12 text-lg font-bold shadow-lg shadow-cafe/20 transition-all hover:scale-[1.02]" disabled={isSaving}>
               {isSaving ? 'Guardando...' : 'Crear Pedido'}
             </Button>
           </DialogFooter>

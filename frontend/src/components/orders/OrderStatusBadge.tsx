@@ -10,10 +10,10 @@ export function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
   return (
     <Badge
       className={cn(
-        'capitalize',
-        status === 'reservado'
-          ? 'bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400'
-          : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400',
+        'capitalize font-bold px-3 py-1 border-none shadow-sm',
+        status === 'reservado' && 'bg-oro text-white hover:bg-oro/90',
+        status === 'consumido' && 'bg-primary text-white hover:bg-primary/90',
+        status === 'cancelado' && 'bg-terracota text-white hover:bg-terracota/90',
       )}
     >
       {status}

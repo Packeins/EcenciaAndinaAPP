@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Order, OrderState } from '@/types';
@@ -132,17 +133,19 @@ export default function Pedidos() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Pedidos</h1>
-          <p className="text-muted-foreground">Gestión de pedidos recibidos por WhatsApp</p>
+        <div className="space-y-1">
+          <h1 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-cafe to-terracota">
+            Pedidos
+          </h1>
+          <p className="text-muted-foreground text-lg">Gestión de pedidos recibidos por WhatsApp</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2">
-            <MessageCircle className="h-5 w-5 text-primary" />
-            <span className="font-medium text-foreground">{reservedCount} pedidos pendientes</span>
+          <div className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 shadow-lg shadow-primary/20 animate-pulse-subtle">
+            <MessageCircle className="h-5 w-5 text-white" />
+            <span className="font-bold text-white text-sm">{reservedCount} pedidos pendientes</span>
           </div>
-          <Button onClick={() => setNewOrderOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
+          <Button onClick={() => setNewOrderOpen(true)} className="gap-2 bg-cafe hover:bg-cafe/90 h-11 px-6 rounded-xl font-bold shadow-lg shadow-cafe/20 transition-all hover:scale-[1.02]">
+            <Plus className="h-5 w-5" />
             Nuevo Pedido
           </Button>
         </div>
@@ -171,7 +174,7 @@ export default function Pedidos() {
               <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white">
                 <SelectItem value="all">Todos los estados</SelectItem>
                 <SelectItem value="reservado">Reservado</SelectItem>
                 <SelectItem value="consumido">Consumido</SelectItem>
@@ -182,7 +185,7 @@ export default function Pedidos() {
               <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white">
                 <SelectItem value="all">Todos los tipos</SelectItem>
                 <SelectItem value="convenio">Convenio</SelectItem>
                 <SelectItem value="cliente">Cliente</SelectItem>
@@ -194,13 +197,13 @@ export default function Pedidos() {
           <div className="rounded-lg border border-border">
             <Table>
               <TableHeader>
-                <TableRow className="bg-accent/50">
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Tipo de Cliente</TableHead>
-                  <TableHead>Detalle de Pedido</TableHead>
-                  <TableHead className="text-center">Total Productos</TableHead>
-                  <TableHead className="text-center">Total ($)</TableHead>
-                  <TableHead>Estado</TableHead>
+                <TableRow className="bg-secondary/10 hover:bg-secondary/10">
+                  <TableHead className="text-cafe font-bold">Cliente</TableHead>
+                  <TableHead className="text-cafe font-bold">Tipo de Cliente</TableHead>
+                  <TableHead className="text-cafe font-bold">Detalle de Pedido</TableHead>
+                  <TableHead className="text-center text-cafe font-bold">Total Productos</TableHead>
+                  <TableHead className="text-center text-cafe font-bold">Total ($)</TableHead>
+                  <TableHead className="text-cafe font-bold">Estado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -256,8 +259,11 @@ export default function Pedidos() {
                           </div>
                         ) : 'Sin detalles'}
                         {order.observaciones && (
-                          <div className="mt-2 text-xs p-2 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded-md">
-                            <span className="font-bold">Nota:</span> {order.observaciones}
+                          <div className="mt-2 p-2.5 bg-cafe/5 border-2 border-cafe rounded-xl shadow-md animate-in zoom-in-95 duration-200">
+                            <p className="text-[12px] font-black text-cafe leading-snug">
+                              <span className="uppercase text-[10px] tracking-widest mr-1.5 opacity-80">Nota:</span>
+                              {order.observaciones}
+                            </p>
                           </div>
                         )}
                       </TableCell>
@@ -265,7 +271,7 @@ export default function Pedidos() {
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         {order.detalle_orden?.reduce((sum: number, d: any) => sum + d.cantidad, 0) || 0}
                       </TableCell>
-                      <TableCell className="text-center font-bold text-emerald-600 dark:text-emerald-500">
+                      <TableCell className="text-center font-bold text-primary">
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         ${(order.detalle_orden?.reduce((sum: number, d: any) => sum + (d.cantidad * (d.precio_aplicado || 0)), 0) || 0).toFixed(2)}
                       </TableCell>
@@ -289,17 +295,18 @@ export default function Pedidos() {
                               }
                             }}
                           >
-                            <SelectTrigger className={`w-[140px] h-8 text-xs font-bold bg-transparent border-border hover:bg-accent ${
-                              (!order.id_estado || order.id_estado === 1) ? 'text-amber-600 dark:text-amber-500' :
-                              order.id_estado === 2 ? 'text-emerald-600 dark:text-emerald-500' :
-                              'text-red-600 dark:text-red-500'
-                            } disabled:opacity-90 disabled:cursor-not-allowed`}>
+                            <SelectTrigger className={cn(
+                              "w-[140px] h-8 text-xs font-bold border-none shadow-sm text-white transition-all",
+                              (!order.id_estado || order.id_estado === 1) ? 'bg-oro hover:bg-oro/90' :
+                              order.id_estado === 2 ? 'bg-primary hover:bg-primary/90' :
+                              'bg-destructive hover:bg-destructive/90'
+                            )}>
                               <SelectValue placeholder="Estado" />
                             </SelectTrigger>
-                            <SelectContent className="bg-popover text-popover-foreground">
-                              <SelectItem value="1" className="font-medium text-amber-600 dark:text-amber-400">Reservado</SelectItem>
-                              <SelectItem value="2" className="font-medium text-emerald-600 dark:text-emerald-400">Consumido</SelectItem>
-                              <SelectItem value="3" className="font-medium text-red-600 dark:text-red-400">Cancelado</SelectItem>
+                            <SelectContent className="bg-white border-border shadow-xl">
+                              <SelectItem value="1" className="font-bold text-popover-foreground">Reservado</SelectItem>
+                              <SelectItem value="2" className="font-bold text-popover-foreground">Consumido</SelectItem>
+                              <SelectItem value="3" className="font-bold text-popover-foreground">Cancelado</SelectItem>
                             </SelectContent>
                           </Select>
                           

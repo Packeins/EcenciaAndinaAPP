@@ -11,39 +11,43 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 209 40% 96%;
-    --foreground: 222 47% 11%;
+    --background: 38 12% 96%; /* Beige muy suave basado en #D1CDC4 */
+    --foreground: 15 45% 15%; /* Café muy oscuro para legibilidad */
 
     --card: 210 40% 98%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 15 45% 15%;
 
-    --popover: 214 31% 91%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 15 45% 33%; /* Café Principal */
 
-    --primary: 200 98% 39%;
-    --primary-foreground: 204 100% 97%;
+    --primary: 172 24% 24%; /* #2F4D49 (Verde Oscuro) */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 24% 26%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 65 24% 31%; /* #61603C (Verde Olivo) */
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 215 20% 65%;
-    --muted-foreground: 222 47% 11%;
+    --muted: 38 15% 88%; /* Beige suave para áreas secundarias */
+    --muted-foreground: 15 35% 20%; /* Café oscuro para mejor contraste */
 
-    --accent: 210 40% 98%;
-    --accent-foreground: 215 19% 34%;
+    --accent: 38 12% 79%; /* #D1CDC4 (Beige) */
+    --accent-foreground: 15 45% 33%;
 
-    --destructive: 0 72% 50%;
-    --destructive-foreground: 0 85% 97%;
+    --destructive: 18 59% 47%; /* Terracota Intenso en lugar de Rojo */
+    --destructive-foreground: 0 0% 100%;
 
     --border: 212 26% 83%;
     --input: 212 26% 83%;
-    --ring: 200 98% 39%;
+    --ring: 20 45% 33%; /* Café - Coincide con focus-visible */
 
     --radius: 0.5rem;
 
+    --cafe: 15 45% 33%;
+    --terracota: 18 59% 47%;
+    --oro: 33 55% 49%;
+
     --sidebar-background: 0 0% 98%;
 
-    --sidebar-foreground: 222 47% 11%;
+    --sidebar-foreground: 15 45% 15%;
 
     --sidebar-primary: 200 98% 39%;
 
@@ -161,4 +165,12 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+}
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.92; transform: scale(0.98); }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

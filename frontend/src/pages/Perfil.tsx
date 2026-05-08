@@ -192,7 +192,7 @@ export default function Perfil() {
                   sistema.
                 </p>
               </div>
-              <Button type="submit" className="w-full" disabled={isSavingData}>
+              <Button type="submit" className="w-full bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20" disabled={isSavingData}>
                 {isSavingData ? 'Guardando...' : 'Guardar Cambios'}
               </Button>
             </form>
@@ -278,8 +278,7 @@ export default function Perfil() {
                   </Button>
                   <Button
                     type="submit"
-                    variant="secondary"
-                    className="w-full"
+                    className="w-full bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20"
                     disabled={
                       isSavingPassword ||
                       !passwordData.password ||

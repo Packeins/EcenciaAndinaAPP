@@ -1,22 +1,19 @@
 import { useSyncExternalStore } from 'react';
 
-export interface DailyMenuOption {
-  sopa: string;
-  segundo: string;
-}
-
 interface MenuState {
   dailyMenu: {
-    opcion1: DailyMenuOption;
-    opcion2: DailyMenuOption;
+    sopas: string[];
+    segundos: string[];
+    guarniciones: string[];
     image: string | null;
   };
 }
 
 let state: MenuState = {
   dailyMenu: {
-    opcion1: { sopa: '', segundo: '' },
-    opcion2: { sopa: '', segundo: '' },
+    sopas: ['', ''], // Por defecto 2 opciones como pedía el usuario
+    segundos: ['', ''],
+    guarniciones: [''],
     image: null,
   },
 };
@@ -34,26 +31,31 @@ const getSnapshot = () => state;
 
 export const menuStore = {
   get: () => state,
-  setDailyOption1: (option: Partial<DailyMenuOption>) => {
+  
+  setSopas: (sopas: string[]) => {
     state = {
       ...state,
-      dailyMenu: {
-        ...state.dailyMenu,
-        opcion1: { ...state.dailyMenu.opcion1, ...option },
-      },
+      dailyMenu: { ...state.dailyMenu, sopas },
     };
     emit();
   },
-  setDailyOption2: (option: Partial<DailyMenuOption>) => {
+
+  setSegundos: (segundos: string[]) => {
     state = {
       ...state,
-      dailyMenu: {
-        ...state.dailyMenu,
-        opcion2: { ...state.dailyMenu.opcion2, ...option },
-      },
+      dailyMenu: { ...state.dailyMenu, segundos },
     };
     emit();
   },
+
+  setGuarniciones: (guarniciones: string[]) => {
+    state = {
+      ...state,
+      dailyMenu: { ...state.dailyMenu, guarniciones },
+    };
+    emit();
+  },
+
   setDailyImage: (image: string | null) => {
     state = {
       ...state,

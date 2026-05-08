@@ -304,13 +304,15 @@ export default function Usuarios() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Empleados</h1>
-          <p className="text-muted-foreground">Lista oficial de empleados (Datos de Supabase)</p>
+        <div className="space-y-1">
+          <h1 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-cafe to-terracota">
+            Gestión de Empleados
+          </h1>
+          <p className="text-muted-foreground text-lg">Administre el equipo de trabajo y los roles de acceso</p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20 h-11 px-6 rounded-xl font-bold transition-all hover:scale-[1.02]">
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Empleado
             </Button>
@@ -404,6 +406,7 @@ export default function Usuarios() {
                 </Button>
                 <Button
                   type="submit"
+                  className="bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20"
                   disabled={isSavingCreate || !isPasswordValid(createFormData.password)}
                 >
                   {isSavingCreate ? 'Creando...' : 'Crear Empleado'}
@@ -419,17 +422,18 @@ export default function Usuarios() {
           <CardTitle>Empleados ECencia Andina</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre Completo</TableHead>
-                <TableHead>Usuario</TableHead>
-                <TableHead>Correo</TableHead>
-                <TableHead>Rol Asignado</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
+          <div className="rounded-lg border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-secondary/10 hover:bg-secondary/10">
+                  <TableHead className="text-cafe font-bold">Nombre Completo</TableHead>
+                  <TableHead className="text-cafe font-bold">Usuario</TableHead>
+                  <TableHead className="text-cafe font-bold">Correo</TableHead>
+                  <TableHead className="text-cafe font-bold">Rol Asignado</TableHead>
+                  <TableHead className="text-cafe font-bold">Estado</TableHead>
+                  <TableHead className="text-right text-cafe font-bold">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
@@ -498,7 +502,8 @@ export default function Usuarios() {
               )}
             </TableBody>
           </Table>
-        </CardContent>
+        </div>
+      </CardContent>
       </Card>
 
       {/* Edit Dialog */}
@@ -569,7 +574,7 @@ export default function Usuarios() {
                   <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={isSavingEdit}>
+                  <Button type="submit" disabled={isSavingEdit} className="bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20">
                     {isSavingEdit ? 'Guardando...' : 'Guardar Cambios'}
                   </Button>
                 </div>

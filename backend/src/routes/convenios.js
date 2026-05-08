@@ -3,6 +3,30 @@ const router = express.Router();
 const { getAdminClient } = require('../config/supabase');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
+const multer = require('multer');
+const path = require('path');
+
+// Configuración de Multer para almacenamiento local
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '../../../convenios'));
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, 'convenio-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    const filetypes = /pdf|jpg|jpeg|png/;
+    const mimetype = filetypes.test(file.mimetype);
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    if (mimetype && extname) return cb(null, true);
+    cb(new Error('Solo se permiten archivos PDF o imágenes (JPG, PNG)'));
+  }
+});
 
 router.use(authMiddleware);
 router.use(roleMiddleware(['administrador']));
@@ -20,7 +44,8 @@ const formatConvenio = (conv) => ({
   activo: conv.esta_activo,
   cupo_maximo: conv.cupo_maximo || 0,
   totalColaboradores: conv.clientes_convenios?.[0]?.count || 0,
-  consumoMensual: 0, 
+  consumoMensual: 0,
+  archivo_firmado: conv.archivo_firmado ? `http://localhost:3001/uploads/convenios/${conv.archivo_firmado}` : null,
 });
 
 // OBTENER TODOS LOS CONVENIOS
@@ -187,14 +212,17 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ACTUALIZAR CONVENIO
+// ACTUALIZAR CONVENIO (Y manejar historial si es renovación)
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { activo, ruc, nombre_empresa, ...rest } = req.body;
+  const { activo, ruc, nombre_empresa, fecha_inicio, fecha_caducidad, ...rest } = req.body;
   const actualizacion = { ...rest, updated_by: req.user.id };
+  
   if (activo !== undefined) actualizacion.esta_activo = activo;
   if (ruc) actualizacion.ruc = ruc;
   if (nombre_empresa) actualizacion.nombre_empresa = nombre_empresa;
+  if (fecha_inicio) actualizacion.fecha_inicio = fecha_inicio;
+  if (fecha_caducidad) actualizacion.fecha_caducidad = fecha_caducidad;
   
   if (req.body.cupo_maximo !== undefined) {
     if (req.body.cupo_maximo < 0) return res.status(400).json({ error: 'El cupo máximo no puede ser menor a 0.' });
@@ -203,7 +231,68 @@ router.put('/:id', async (req, res) => {
 
   try {
     const adminClient = getAdminClient();
+
+    // Si se están actualizando las fechas (Renovación), guardamos el actual en el historial
+    if (fecha_inicio || fecha_caducidad) {
+      const { data: actual } = await adminClient.from('convenios').select('*').eq('id_convenio', id).single();
+      if (actual) {
+        // Solo guardamos en historial si ya tenía fechas previas
+        await adminClient.from('ConvenioHistorial').insert([{
+          id_convenio: id,
+          fecha_inicio: actual.fecha_inicio,
+          fecha_caducidad: actual.fecha_caducidad,
+          archivo_firmado: actual.archivo_firmado
+        }]);
+        // Al renovar, el nuevo periodo empieza sin archivo firmado (debe subirse el nuevo)
+        actualizacion.archivo_firmado = null;
+      }
+    }
+
     const { data, error } = await adminClient.from('convenios').update(actualizacion).eq('id_convenio', id).select('*, clientes_convenios(count)').single();
+    if (error) throw error;
+    res.json(formatConvenio(data));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// OBTENER HISTORIAL DE CONVENIO
+router.get('/:id/historial', async (req, res) => {
+  try {
+    const adminClient = getAdminClient();
+    const { data, error } = await adminClient
+      .from('ConvenioHistorial')
+      .select('*')
+      .eq('id_convenio', req.params.id)
+      .order('fecha_registro', { ascending: false });
+    
+    if (error) throw error;
+    
+    const historialFormateado = data.map(h => ({
+      ...h,
+      archivo_url: h.archivo_firmado ? `http://localhost:3001/uploads/convenios/${h.archivo_firmado}` : null
+    }));
+    
+    res.json(historialFormateado);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// SUBIR ARCHIVO FIRMADO
+router.post('/:id/upload', upload.single('archivo'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo.' });
+  
+  const { id } = req.params;
+  try {
+    const adminClient = getAdminClient();
+    const { data, error } = await adminClient
+      .from('convenios')
+      .update({ archivo_firmado: req.file.filename, updated_by: req.user.id })
+      .eq('id_convenio', id)
+      .select('*, clientes_convenios(count)')
+      .single();
+    
     if (error) throw error;
     res.json(formatConvenio(data));
   } catch (error) {

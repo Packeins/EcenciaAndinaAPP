@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Convenio, Client } from '@/types';
+import { Convenio, Client, ConvenioHistorial } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Users, Building2, Mail, Phone, CalendarDays, Trash2, Search, UserPlus, ArrowLeft, FileDown, ShieldCheck } from 'lucide-react';
+import { Plus, Pencil, Users, Building2, Mail, Phone, CalendarDays, Trash2, Search, UserPlus, ArrowLeft, FileDown, ShieldCheck, Eye, Upload, History, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -40,6 +40,21 @@ export default function Convenios() {
 
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [convenioToToggle, setConvenioToToggle] = useState<Convenio | null>(null);
+
+  const [isRenewalDialogOpen, setIsRenewalDialogOpen] = useState(false);
+  const [convenioToRenew, setConvenioToRenew] = useState<Convenio | null>(null);
+  const [renewalDates, setRenewalDates] = useState({ fecha_inicio: '', fecha_caducidad: '' });
+
+  const [convenioHistorial, setConvenioHistorial] = useState<ConvenioHistorial[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const isExpired = (dateStr: string) => {
+    if (!dateStr) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiryDate = new Date(dateStr + 'T00:00:00');
+    return expiryDate < today;
+  };
 
   const [formData, setFormData] = useState({
     ruc: '',
@@ -116,6 +131,7 @@ export default function Convenios() {
       cupo_maximo: convenio.cupo_maximo,
     });
     fetchAssociatedClients(convenio.id);
+    fetchHistorial(convenio.id);
     fetchAllClientsForSelection();
     setDialogOpen(true);
     setShowCreateForm(false);
@@ -125,6 +141,11 @@ export default function Convenios() {
     if (!formData.ruc || !formData.nombre_empresa || !formData.fecha_inicio || !formData.fecha_caducidad) {
       toast.error('Campos obligatorios faltantes'); return;
     }
+
+    if (new Date(formData.fecha_caducidad) < new Date(formData.fecha_inicio)) {
+      toast.error('La fecha de caducidad no puede ser anterior a la fecha de inicio');
+      return;
+    }
     setIsSaving(true);
     try {
       const url = editingConvenio ? `/convenios/${editingConvenio.id}` : '/convenios';
@@ -132,9 +153,14 @@ export default function Convenios() {
       const response = await apiFetch(url, { method, body: JSON.stringify(formData) });
       const data = await response.json();
       if (response.ok) {
-        if (editingConvenio) setConvenios(convenios.map(c => c.id === editingConvenio.id ? data : c));
-        else setConvenios([data, ...convenios]);
-        toast.success(editingConvenio ? 'Actualizado' : 'Creado');
+        if (editingConvenio) {
+          setConvenios(convenios.map(c => c.id === editingConvenio.id ? data : c));
+        } else {
+          setConvenios([data, ...convenios]);
+          // Generar PDF automáticamente para el nuevo convenio
+          setTimeout(() => handleExportPDF(data), 500);
+        }
+        toast.success(editingConvenio ? 'Actualizado' : 'Convenio creado. Generando documento para firma...');
         setDialogOpen(false);
       } else toast.error(data.error);
     } finally { setIsSaving(false); }
@@ -191,7 +217,27 @@ export default function Convenios() {
     } catch (err) { toast.error('Error de conexión'); }
   };
 
+  const fetchHistorial = async (id: string) => {
+    try {
+      const response = await apiFetch(`/convenios/${id}/historial`);
+      if (response.ok) {
+        const data = await response.json();
+        setConvenioHistorial(data);
+      }
+    } catch (err) { console.error('Error fetching historial:', err); }
+  };
+
   const handleToggleClick = (convenio: Convenio) => {
+    if (isExpired(convenio.fecha_caducidad)) {
+      setConvenioToRenew(convenio);
+      setRenewalDates({ 
+        fecha_inicio: new Date().toISOString().split('T')[0], 
+        fecha_caducidad: '' 
+      });
+      setIsRenewalDialogOpen(true);
+      return;
+    }
+
     if (convenio.activo) { setConvenioToToggle(convenio); setIsAlertOpen(true); }
     else confirmToggle(convenio.id, true);
   };
@@ -204,6 +250,74 @@ export default function Convenios() {
         setConvenios(convenios.map(c => c.id === id ? data : c));
       }
     } finally { setIsAlertOpen(false); setConvenioToToggle(null); }
+  };
+
+  const handleRenew = async () => {
+    if (!convenioToRenew || !renewalDates.fecha_inicio || !renewalDates.fecha_caducidad) {
+      toast.error('Por favor seleccione ambas fechas'); return;
+    }
+
+    if (new Date(renewalDates.fecha_caducidad) < new Date(renewalDates.fecha_inicio)) {
+      toast.error('La fecha de caducidad no puede ser anterior a la fecha de inicio');
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      const response = await apiFetch(`/convenios/${convenioToRenew.id}`, { 
+        method: 'PUT', 
+        body: JSON.stringify({ 
+          ...renewalDates, 
+          activo: true 
+        }) 
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setConvenios(convenios.map(c => c.id === convenioToRenew.id ? data : c));
+        toast.success('Convenio renovado y activado. Generando nuevo contrato...');
+        setIsRenewalDialogOpen(false);
+        setTimeout(() => handleExportPDF(data), 500);
+      } else {
+        const err = await response.json();
+        toast.error(err.error);
+      }
+    } finally { setIsSaving(false); }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formDataUpload = new FormData();
+    formDataUpload.append('archivo', file);
+
+    setIsUploading(true);
+    try {
+      // Usamos fetch directo para manejar FormData correctamente sin los headers JSON de apiFetch
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:3001/api/convenios/${id}/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formDataUpload
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setConvenios(convenios.map(c => c.id === id ? data : c));
+        if (editingConvenio?.id === id) setEditingConvenio(data);
+        toast.success('Convenio firmado subido correctamente');
+      } else {
+        const errData = await response.json();
+        toast.error(errData.error || 'Error al subir archivo');
+      }
+    } catch (err) {
+      toast.error('Error de conexión al subir archivo');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleExportPDF = (convenio: Convenio) => {
@@ -289,9 +403,16 @@ export default function Convenios() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-foreground">Convenios</h1><p className="text-muted-foreground">Gestión de convenios empresariales</p></div>
-        <Button onClick={handleOpenNew} className="gap-2"><Plus className="h-4 w-4" /> Nuevo Convenio</Button>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-cafe to-terracota">
+            Convenios
+          </h1>
+          <p className="text-muted-foreground text-lg">Administración de alianzas empresariales de Ecencia Andina</p>
+        </div>
+        <Button onClick={handleOpenNew} className="gap-2 bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20 h-12 px-6 rounded-xl font-bold transition-all hover:scale-[1.02]">
+          <Plus className="h-5 w-5" /> Nuevo Convenio
+        </Button>
       </div>
 
       {isLoading ? (
@@ -299,20 +420,26 @@ export default function Convenios() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {convenios.map((convenio) => (
-            <Card key={convenio.id}>
+            <Card key={convenio.id} className="border-border shadow-sm border-t-4 border-t-primary bg-primary/5 group hover:shadow-md transition-all duration-300">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><Building2 className="h-5 w-5 text-primary" /></div>
-                    <div><CardTitle className="text-lg">{convenio.nombre_empresa}</CardTitle><CardDescription>RUC: {convenio.ruc}</CardDescription></div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white shadow-sm group-hover:scale-110 transition-transform">
+                      <Building2 className="h-5 w-5" />
+                    </div>
+                    <div><CardTitle className="text-lg font-bold text-cafe">{convenio.nombre_empresa}</CardTitle><CardDescription className="font-medium">RUC: {convenio.ruc}</CardDescription></div>
                   </div>
-                  <Badge variant={convenio.activo ? 'default' : 'secondary'}>{convenio.activo ? 'Activo' : 'Inactivo'}</Badge>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge variant={isExpired(convenio.fecha_caducidad) ? 'destructive' : (convenio.activo ? 'default' : 'secondary')}>
+                      {isExpired(convenio.fecha_caducidad) ? 'Vencido' : (convenio.activo ? 'Activo' : 'Inactivo')}
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2 text-sm text-muted-foreground">
-                   <div className="flex items-center gap-2 text-foreground"><Users className="h-4 w-4 text-muted-foreground" /> {convenio.representante || '—'}</div>
-                   <div className="flex items-center gap-2 text-foreground"><CalendarDays className="h-4 w-4 text-muted-foreground" /> {formatDate(convenio.fecha_inicio)} — {formatDate(convenio.fecha_caducidad)}</div>
+                   <div className="flex items-center gap-2 text-foreground font-medium"><Users className="h-4 w-4 text-terracota" /> {convenio.representante || '—'}</div>
+                   <div className="flex items-center gap-2 text-foreground font-medium"><CalendarDays className="h-4 w-4 text-oro" /> {formatDate(convenio.fecha_inicio)} — {formatDate(convenio.fecha_caducidad)}</div>
                 </div>
                 <div className="space-y-3 py-2">
                   <div className="flex justify-between items-center text-xs">
@@ -321,21 +448,43 @@ export default function Convenios() {
                       {convenio.totalColaboradores} / {convenio.cupo_maximo}
                     </span>
                   </div>
-                  <div className="h-2 w-full bg-accent rounded-full overflow-hidden">
+                  <div className="h-2 w-full bg-accent/50 rounded-full overflow-hidden border border-border/50">
                     <div 
-                      className={`h-full transition-all ${convenio.totalColaboradores >= convenio.cupo_maximo ? 'bg-destructive' : 'bg-primary'}`}
+                      className={`h-full transition-all ${convenio.totalColaboradores >= convenio.cupo_maximo ? 'bg-destructive' : 'bg-oro'}`}
                       style={{ width: `${Math.min((convenio.totalColaboradores / (convenio.cupo_maximo || 1)) * 100, 100)}%` }}
                     />
                   </div>
                 </div>
                 <div className="flex items-center justify-between border-t pt-3">
                   <div className="flex items-center gap-2">
-                    <Switch checked={convenio.activo} onCheckedChange={() => handleToggleClick(convenio)} />
-                    <Button variant="ghost" size="icon" onClick={() => handleExportPDF(convenio)} title="Exportar PDF">
-                      <FileDown className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Switch 
+                        checked={convenio.activo && !isExpired(convenio.fecha_caducidad)} 
+                        onCheckedChange={() => handleToggleClick(convenio)} 
+                      />
+                      <span className={`text-[10px] font-bold uppercase ${isExpired(convenio.fecha_caducidad) ? 'text-destructive' : (convenio.activo ? 'text-primary' : 'text-muted-foreground')}`}>
+                        {isExpired(convenio.fecha_caducidad) ? 'Vencido' : (convenio.activo ? 'Activo' : 'Inactivo')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleExportPDF(convenio)} title="Exportar PDF">
+                        <FileDown className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors" />
+                      </Button>
+                      {convenio.archivo_firmado && (
+                        <Button variant="ghost" size="icon" onClick={() => window.open(convenio.archivo_firmado, '_blank')} title="Ver convenio firmado">
+                          <Eye className="h-4 w-4 text-primary animate-pulse" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => handleEdit(convenio)}><Pencil className="mr-1 h-4 w-4" /> Editar</Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleEdit(convenio)}
+                    disabled={isExpired(convenio.fecha_caducidad)}
+                  >
+                    <Pencil className="mr-1 h-4 w-4" /> Editar
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -351,9 +500,10 @@ export default function Convenios() {
           </DialogHeader>
 
           <Tabs defaultValue="info" className="w-full mt-4">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className={`grid w-full ${editingConvenio ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <TabsTrigger value="info">Información General</TabsTrigger>
               <TabsTrigger value="clients" disabled={!editingConvenio}>Colaboradores ({associatedClients.length})</TabsTrigger>
+              {editingConvenio && <TabsTrigger value="history">Historial</TabsTrigger>}
             </TabsList>
             
             <TabsContent value="info" className="space-y-4 py-4">
@@ -367,8 +517,26 @@ export default function Convenios() {
                   <div className="space-y-2"><Label>Email</Label><Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
                </div>
                 <div className="grid gap-4 md:grid-cols-3">
-                  <div className="space-y-2"><Label>Fecha Inicio *</Label><Input type="date" value={formData.fecha_inicio} onChange={e => setFormData({...formData, fecha_inicio: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Fecha Caducidad *</Label><Input type="date" value={formData.fecha_caducidad} onChange={e => setFormData({...formData, fecha_caducidad: e.target.value})} /></div>
+                  <div className="space-y-2">
+                    <Label>Fecha Inicio *</Label>
+                    <Input 
+                      type="date" 
+                      value={formData.fecha_inicio} 
+                      onChange={e => setFormData({...formData, fecha_inicio: e.target.value})} 
+                      disabled={!!editingConvenio}
+                      className={editingConvenio ? "bg-muted" : ""}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Fecha Caducidad *</Label>
+                    <Input 
+                      type="date" 
+                      value={formData.fecha_caducidad} 
+                      onChange={e => setFormData({...formData, fecha_caducidad: e.target.value})} 
+                      disabled={!!editingConvenio}
+                      className={editingConvenio ? "bg-muted" : ""}
+                    />
+                  </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label>Máximo de Colaboradores *</Label>
@@ -382,7 +550,95 @@ export default function Convenios() {
                     />
                   </div>
                 </div>
-               <DialogFooter className="pt-4"><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button><Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar Datos'}</Button></DialogFooter>
+
+                {editingConvenio && (
+                  <div className="flex justify-end px-1">
+                    <Button 
+                      variant="link" 
+                      size="sm" 
+                      className="text-primary font-bold h-auto p-0 flex items-center gap-1"
+                      onClick={() => {
+                        setDialogOpen(false);
+                        setConvenioToRenew(editingConvenio);
+                        setRenewalDates({ 
+                          fecha_inicio: new Date().toISOString().split('T')[0], 
+                          fecha_caducidad: '' 
+                        });
+                        setIsRenewalDialogOpen(true);
+                      }}
+                    >
+                      <Plus className="h-3 w-3" /> Renovar vigencia del convenio
+                    </Button>
+                  </div>
+                )}
+
+                {editingConvenio && (
+                  <div className="space-y-4 border-t pt-4">
+                    <Label className="flex items-center gap-2">
+                      <Upload className="h-4 w-4 text-primary" />
+                      Documento del Convenio
+                    </Label>
+                    
+                    {!editingConvenio.archivo_firmado ? (
+                      <div className="space-y-3">
+                        <p className="text-sm font-medium text-destructive">
+                          ⚠️ El convenio aún no cuenta con el documento firmado, por favor subirlo lo antes posible.
+                        </p>
+                        <Input 
+                          type="file" 
+                          accept=".pdf,image/*" 
+                          onChange={(e) => handleFileUpload(e, editingConvenio.id)}
+                          disabled={isUploading}
+                          className="flex-1"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
+                          <div className="flex items-center gap-2 text-primary">
+                            <ShieldCheck className="h-5 w-5" />
+                            <span className="text-sm font-semibold">Convenio Firmado Cargado</span>
+                          </div>
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            className="gap-2 shadow-sm"
+                            onClick={() => window.open(editingConvenio.archivo_firmado, '_blank')}
+                          >
+                            <Eye className="h-4 w-4" />
+                            Ver convenio firmado
+                          </Button>
+                        </div>
+                        <div className="flex items-center justify-between px-1">
+                          <p className="text-[10px] text-muted-foreground italic">
+                            Cargado correctamente en el sistema local.
+                          </p>
+                          <Button 
+                            variant="link" 
+                            size="sm" 
+                            className="text-muted-foreground hover:text-primary text-[10px] h-auto p-0"
+                            onClick={() => {
+                              const input = document.createElement('input');
+                              input.type = 'file';
+                              input.accept = '.pdf,image/*';
+                              input.onchange = (e) => {
+                                const target = e.target as HTMLInputElement;
+                                if (target.files && target.files.length > 0) {
+                                  handleFileUpload({ target } as React.ChangeEvent<HTMLInputElement>, editingConvenio.id);
+                                }
+                              };
+                              input.click();
+                            }}
+                          >
+                            Cambiar archivo
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+               <DialogFooter className="pt-4"><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button><Button onClick={handleSave} disabled={isSaving} className="bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20">{isSaving ? 'Guardando...' : 'Guardar Datos'}</Button></DialogFooter>
             </TabsContent>
 
             <TabsContent value="clients" className="space-y-4 py-4">
@@ -400,7 +656,7 @@ export default function Convenios() {
                         onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
                       />
                       {(clientSearch || isSearchFocused) && (
-                        <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-[250px] overflow-y-auto">
+                        <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-[250px] overflow-y-auto">
                           <div className="p-2 border-b bg-accent/50 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                             {clientSearch ? 'Resultados de búsqueda' : 'Sugerencias de clientes'}
                           </div>
@@ -414,7 +670,7 @@ export default function Convenios() {
                           ) : (
                             <div className="p-4 text-center space-y-2">
                               <p className="text-sm text-muted-foreground">No se encontró al cliente.</p>
-                              <Button size="sm" variant="outline" onClick={() => setShowCreateForm(true)} className="gap-2"><Plus className="h-4 w-4" /> Registrar nuevo colaborador</Button>
+                              <Button size="sm" variant="outline" onClick={() => setShowCreateForm(true)} className="gap-2 border-cafe text-cafe hover:bg-cafe/10"><Plus className="h-4 w-4" /> Registrar nuevo colaborador</Button>
                             </div>
                           )}
                         </div>
@@ -452,6 +708,48 @@ export default function Convenios() {
                 </div>
               )}
             </TabsContent>
+
+            <TabsContent value="history" className="space-y-4 py-4">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-primary font-semibold">
+                  <History className="h-5 w-5" />
+                  <h3>Historial de Periodos y Contratos</h3>
+                </div>
+                
+                {convenioHistorial.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                    No hay registros anteriores para este convenio.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {convenioHistorial.map((h) => (
+                      <div key={h.id} className="flex items-center justify-between p-4 bg-accent/30 rounded-xl border group hover:border-primary/50 transition-colors">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold">{formatDate(h.fecha_inicio)} — {formatDate(h.fecha_caducidad)}</span>
+                            <Badge variant="outline" className="text-[10px]">Periodo Finalizado</Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">Registrado el {new Date(h.fecha_registro).toLocaleString()}</p>
+                        </div>
+                        {h.archivo_url ? (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="gap-2 text-primary hover:bg-primary/10"
+                            onClick={() => window.open(h.archivo_url!, '_blank')}
+                          >
+                            <FileText className="h-4 w-4" />
+                            Ver contrato
+                          </Button>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground italic px-2">Sin documento firmado</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
           </Tabs>
         </DialogContent>
       </Dialog>
@@ -462,6 +760,43 @@ export default function Convenios() {
           <AlertDialogFooter><AlertDialogCancel onClick={() => setConvenioToToggle(null)}>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => convenioToToggle && confirmToggle(convenioToToggle.id, false)} className="bg-destructive text-destructive-foreground">Sí, desactivar</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isRenewalDialogOpen} onOpenChange={setIsRenewalDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Renovación de Convenio</DialogTitle>
+            <DialogDescription>
+              Su convenio debe renovarse. Por favor seleccione el nuevo periodo para reactivarlo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nueva Fecha Inicio</Label>
+                <Input 
+                  type="date" 
+                  value={renewalDates.fecha_inicio} 
+                  onChange={e => setRenewalDates({...renewalDates, fecha_inicio: e.target.value})} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Nueva Fecha Fin</Label>
+                <Input 
+                  type="date" 
+                  value={renewalDates.fecha_caducidad} 
+                  onChange={e => setRenewalDates({...renewalDates, fecha_caducidad: e.target.value})} 
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRenewalDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleRenew} disabled={isSaving} className="bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20">
+              {isSaving ? 'Renovando...' : 'Renovar y Activar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
