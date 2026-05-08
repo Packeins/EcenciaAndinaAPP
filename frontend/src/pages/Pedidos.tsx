@@ -93,8 +93,7 @@ export default function Pedidos() {
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleSaveOrder = (updatedOrder: any) => {
-    // Implement full save logic later, for now just refresh
+  const handleSaveOrder = () => {
     fetchOrders();
     setDialogOpen(false);
   };
