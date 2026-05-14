@@ -2,7 +2,7 @@
 export type UserRole = 'administrador' | 'caja';
 
 // Order states
-export type OrderState = 'reservado' | 'consumido';
+export type OrderState = 'reservado' | 'consumido' | 'cancelado';
 
 // Client types
 export type ClientType = 'convenio' | 'cliente';
