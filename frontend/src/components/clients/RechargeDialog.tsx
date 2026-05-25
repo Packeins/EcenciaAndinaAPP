@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Client } from '@/types';
+import { Client, Alimento } from '@/types';
 import { apiFetch } from '@/lib/api';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ interface RechargeDialogProps {
 }
 
 export function RechargeDialog({ open, onOpenChange, clients }: RechargeDialogProps) {
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Alimento[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -41,7 +41,7 @@ export function RechargeDialog({ open, onOpenChange, clients }: RechargeDialogPr
       const response = await apiFetch('/productos');
       if (response.ok) {
         const data = await response.json();
-        const almuerzos = data.filter((p: any) =>
+        const almuerzos = data.filter((p: Alimento) =>
           p.categoria_nombre?.toLowerCase().includes('almuerzo')
         );
         setProducts(almuerzos);

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAdminClient } = require('../config/supabase');
+const { getAdminClient, supabase } = require('../config/supabase');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
 
@@ -115,6 +115,61 @@ router.post('/', authMiddleware, roleMiddleware(['administrador']), async (req, 
 
 // Los demás métodos también deben usar adminClient si hay RLS...
 // Pero por ahora actualicemos los básicos de lectura.
+
+// Actualizar perfil del usuario autenticado
+router.put('/perfil', authMiddleware, async (req, res) => {
+  try {
+    const { nombre, apellido, nombre_usuario } = req.body;
+    const adminClient = getAdminClient();
+    const { data, error } = await adminClient
+      .from('empleados')
+      .update({
+        nombre,
+        apellido,
+        nombre_usuario,
+        updated_by: req.user.id,
+      })
+      .eq('id', req.user.id)
+      .select('*, roles(nombre_rol)')
+      .single();
+
+    if (error) throw error;
+
+    await adminClient.auth.admin.updateUserById(req.user.id, {
+      user_metadata: { nombre, apellido, nombre_usuario }
+    });
+
+    res.json({ mensaje: 'Perfil actualizado exitosamente', data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Cambiar contraseña del usuario autenticado
+router.put('/perfil/password', authMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    
+    // Verificar contraseña actual
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: req.user.email,
+      password: currentPassword,
+    });
+    if (authError) {
+      return res.status(401).json({ error: 'La contraseña actual es incorrecta' });
+    }
+
+    const adminClient = getAdminClient();
+    const { error } = await adminClient.auth.admin.updateUserById(req.user.id, {
+      password: newPassword
+    });
+
+    if (error) throw error;
+    res.json({ mensaje: 'Contraseña actualizada correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Actualizar estado (Activar/Desactivar)
 router.put('/:id/estado', authMiddleware, roleMiddleware(['administrador']), async (req, res) => {

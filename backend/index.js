@@ -50,6 +50,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/productos', require('./src/routes/productos'));
 app.use('/api/clientes', require('./src/routes/clientes'));
 app.use('/api/ordenes', require('./src/routes/ordenes'));
+app.use('/api/reportes', require('./src/routes/reportes'));
 app.use('/api/convenios', require('./src/routes/convenios'));
 app.use('/api/empleados', require('./src/routes/empleados'));
 app.use('/api/categorias', require('./src/routes/categorias'));

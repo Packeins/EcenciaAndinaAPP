@@ -125,8 +125,8 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
   const isClientSelected = (clientMode === 'existing' && !!clienteId) || (clientMode === 'new' && !!tipoCliente && !!watch('cedula'));
   const isFrecuente = clientMode === 'existing' ? (!selectedClient?.convenio && selectedClient?.id_tipo_cliente === 2) : (tipoCliente === 'cliente');
   
-  let showOrderForm = isClientSelected;
-  let blockMessage = isClientSelected ? '' : 'Seleccione un cliente para continuar con el pedido.';
+  const showOrderForm = isClientSelected;
+  const blockMessage = isClientSelected ? '' : 'Seleccione un cliente para continuar con el pedido.';
 
   const [isSaving, setIsSaving] = useState(false);
 

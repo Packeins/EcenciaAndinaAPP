@@ -38,7 +38,7 @@ export default function Menu() {
           apiFetch('/alimentos'),
           apiFetch('/alimentos/menu-diario/hoy')
         ]);
-        let fetchedCats: any = [];
+        let fetchedCats: Category[] = [];
         if (catRes.ok) {
           fetchedCats = await catRes.json();
           setCategories(fetchedCats);
@@ -56,9 +56,9 @@ export default function Menu() {
           if (menuHoy.imagen_url) menuStore.setDailyImage(menuHoy.imagen_url);
           
           if (menuHoy.alimentos && menuHoy.alimentos.length > 0) {
-            const loadedSopas = menuHoy.alimentos.filter((a: any) => a.id_categoria === getCategoryId('Sopa', fetchedCats)).map((a: any) => a.nombre);
-            const loadedSegundos = menuHoy.alimentos.filter((a: any) => a.id_categoria === getCategoryId('Segundo', fetchedCats)).map((a: any) => a.nombre);
-            const loadedGuarniciones = menuHoy.alimentos.filter((a: any) => a.id_categoria === getCategoryId('Guarni', fetchedCats)).map((a: any) => a.nombre);
+            const loadedSopas = menuHoy.alimentos.filter((a: Alimento) => a.id_categoria === getCategoryId('Sopa', fetchedCats)).map((a: { nombre: string }) => a.nombre);
+            const loadedSegundos = menuHoy.alimentos.filter((a: Alimento) => a.id_categoria === getCategoryId('Segundo', fetchedCats)).map((a: { nombre: string }) => a.nombre);
+            const loadedGuarniciones = menuHoy.alimentos.filter((a: Alimento) => a.id_categoria === getCategoryId('Guarni', fetchedCats)).map((a: { nombre: string }) => a.nombre);
             
             if (loadedSopas.length > 0) menuStore.setSopas(loadedSopas);
             if (loadedSegundos.length > 0) menuStore.setSegundos(loadedSegundos);
@@ -70,6 +70,7 @@ export default function Menu() {
       }
     };
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSendMenu = async () => {
