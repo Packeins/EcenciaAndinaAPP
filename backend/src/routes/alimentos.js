@@ -135,7 +135,7 @@ router.get('/menu-diario/hoy', roleMiddleware(['administrador', 'caja']), async 
 
 // Guardar el menú del día
 router.post('/menu-diario', roleMiddleware(['administrador', 'caja']), async (req, res) => {
-  const { fecha, alimentos_ids, imagen_url } = req.body;
+  const { fecha, alimentos_ids } = req.body;
   
   if (!fecha || !Array.isArray(alimentos_ids)) {
     return res.status(400).json({ error: 'Fecha y array de alimentos_ids requeridos' });

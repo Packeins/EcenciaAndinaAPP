@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { UserCog, KeyRound } from 'lucide-react';
@@ -221,9 +222,8 @@ export default function Perfil() {
               <form onSubmit={handleSavePassword} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="currentPassword">Contraseña Actual</Label>
-                  <Input
+                  <PasswordInput
                     id="currentPassword"
-                    type="password"
                     value={passwordData.currentPassword}
                     onChange={(e) =>
                       setPasswordData({ ...passwordData, currentPassword: e.target.value })
@@ -234,9 +234,8 @@ export default function Perfil() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Nueva Contraseña</Label>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     value={passwordData.password}
                     onChange={(e) => setPasswordData({ ...passwordData, password: e.target.value })}
                     placeholder="Escriba su nueva contraseña"
@@ -245,9 +244,8 @@ export default function Perfil() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
-                  <Input
+                  <PasswordInput
                     id="confirmPassword"
-                    type="password"
                     value={passwordData.confirmPassword}
                     onChange={(e) =>
                       setPasswordData({ ...passwordData, confirmPassword: e.target.value })

@@ -28,7 +28,7 @@ type HistorialEvent = {
 };
 
 export function WalletDialog({ client, open, onOpenChange }: WalletDialogProps) {
-  const [balances, setBalances] = useState<any[]>([]);
+  const [balances, setBalances] = useState<{ productos?: { nombre_producto: string }; cantidad_disponible: number }[]>([]);
   const [historial, setHistorial] = useState<HistorialEvent[]>([]);
   const [isLoadingBalances, setIsLoadingBalances] = useState(true);
   const [isLoadingHistorial, setIsLoadingHistorial] = useState(false);
@@ -39,12 +39,14 @@ export function WalletDialog({ client, open, onOpenChange }: WalletDialogProps) 
       setActiveTab('saldos');
       fetchBalances();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, client]);
 
   useEffect(() => {
     if (activeTab === 'historial' && client && historial.length === 0) {
       fetchHistorial();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const fetchBalances = async () => {

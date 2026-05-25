@@ -116,7 +116,6 @@ export default function Pedidos() {
     setDialogOpen(true);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleSaveOrder = () => {
     fetchOrders();
     setDialogOpen(false);

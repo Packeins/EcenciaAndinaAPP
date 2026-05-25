@@ -54,6 +54,7 @@ export default function Productos() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
 
   // Dialogs
   const [productDialogOpen, setProductDialogOpen] = useState(false);
@@ -196,6 +197,10 @@ export default function Productos() {
     (p.descripcion && p.descripcion.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  const filteredCategories = categories.filter(c =>
+    c.nombre_categoria.toLowerCase().includes(categorySearchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -279,27 +284,65 @@ export default function Productos() {
         </TabsContent>
 
         <TabsContent value="categories" className="space-y-4 pt-4">
-          <div className="flex justify-end">
-            <Button onClick={() => handleOpenCategory()} variant="outline" className="gap-2"><Plus className="h-4 w-4" /> Nueva Categoría</Button>
+          <div className="flex items-center justify-between gap-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input 
+                placeholder="Buscar categoría..." 
+                className="pl-10" 
+                value={categorySearchTerm} 
+                onChange={e => setCategorySearchTerm(e.target.value)} 
+              />
+            </div>
+            <Button onClick={() => handleOpenCategory()} className="bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20 h-11 px-6 rounded-xl font-bold transition-all hover:scale-[1.02]">
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva Categoría
+            </Button>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {categories.map(c => (
-              <Card key={c.id_categoria}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <div className="flex items-center gap-2">
-                    <Tag className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-md">{c.nombre_categoria}</CardTitle>
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={() => handleOpenCategory(c)}><Pencil className="h-4 w-4" /></Button>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-xs text-muted-foreground">
-                    {products.filter(p => p.id_categoria === c.id_categoria).length} productos vinculados
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="rounded-lg border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-secondary/10 hover:bg-secondary/10">
+                      <TableHead className="text-cafe font-bold">Nombre de la Categoría</TableHead>
+                      <TableHead className="text-cafe font-bold">Productos Vinculados</TableHead>
+                      <TableHead className="text-right text-cafe font-bold">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      <TableRow><TableCell colSpan={3} className="py-8 text-center text-muted-foreground">Cargando categorías...</TableCell></TableRow>
+                    ) : filteredCategories.length === 0 ? (
+                      <TableRow><TableCell colSpan={3} className="py-8 text-center text-muted-foreground">No se encontraron categorías.</TableCell></TableRow>
+                    ) : filteredCategories.map(c => (
+                      <TableRow key={c.id_categoria}>
+                        <TableCell className="font-medium text-foreground">
+                          <div className="flex items-center gap-2">
+                            <Tag className="h-4 w-4 text-primary" />
+                            {c.nombre_categoria}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">
+                            {products.filter(p => p.id_categoria === c.id_categoria).length} productos
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleOpenCategory(c)} title="Editar categoría">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

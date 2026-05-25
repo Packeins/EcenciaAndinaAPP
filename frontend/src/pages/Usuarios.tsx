@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -376,9 +377,8 @@ export default function Usuarios() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Contraseña</Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={createFormData.password}
                   onChange={(e) =>
                     setCreateFormData({ ...createFormData, password: e.target.value })
@@ -623,9 +623,8 @@ export default function Usuarios() {
                     <div className="space-y-4 border-t border-border/50 pt-2">
                       <div className="space-y-2">
                         <Label htmlFor="new-password">Nueva Contraseña</Label>
-                        <Input
+                        <PasswordInput
                           id="new-password"
-                          type="password"
                           value={passwordData.password}
                           onChange={(e) =>
                             setPasswordData({ ...passwordData, password: e.target.value })
@@ -636,9 +635,8 @@ export default function Usuarios() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="confirm-new-password">Confirmar Contraseña</Label>
-                        <Input
+                        <PasswordInput
                           id="confirm-new-password"
-                          type="password"
                           value={passwordData.confirmPassword}
                           onChange={(e) =>
                             setPasswordData({ ...passwordData, confirmPassword: e.target.value })
