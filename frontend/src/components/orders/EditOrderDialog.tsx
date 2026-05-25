@@ -112,7 +112,7 @@ export function EditOrderDialog({ order, open, onOpenChange, onSave }: EditOrder
                 <p className="font-medium text-foreground">{order.clientes?.nombre} {order.clientes?.apellido}</p>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">WhatsApp</Label>
+                <Label className="text-xs text-muted-foreground">App de Mensajería</Label>
                 <p className="font-medium text-foreground">{order.clientes?.telefono || 'N/A'}</p>
               </div>
               <div>

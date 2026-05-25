@@ -102,4 +102,76 @@ router.post('/', roleMiddleware(['administrador', 'caja']), async (req, res) => 
   }
 });
 
+// --- RUTAS PARA EL MENU DIARIO ---
+
+// Obtener el menú para el día actual
+router.get('/menu-diario/hoy', roleMiddleware(['administrador', 'caja']), async (req, res) => {
+  try {
+    const adminClient = getAdminClient();
+    
+    // Usamos la fecha en formato local YYYY-MM-DD
+    const hoy = new Date().toISOString().split('T')[0];
+    
+    // Traer los alimentos del menú de hoy
+    const { data: alimentosMenu, error } = await adminClient
+      .from('menu_diario')
+      .select('id_alimento, alimentos(nombre_alimento, id_categoria_menu)')
+      .eq('fecha', hoy);
+
+    if (error) throw error;
+
+    res.json({
+      fecha: hoy,
+      alimentos: alimentosMenu.map(m => ({
+        id_alimento: m.id_alimento,
+        nombre: m.alimentos?.nombre_alimento,
+        id_categoria: m.alimentos?.id_categoria_menu
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Guardar el menú del día
+router.post('/menu-diario', roleMiddleware(['administrador', 'caja']), async (req, res) => {
+  const { fecha, alimentos_ids, imagen_url } = req.body;
+  
+  if (!fecha || !Array.isArray(alimentos_ids)) {
+    return res.status(400).json({ error: 'Fecha y array de alimentos_ids requeridos' });
+  }
+
+  try {
+    const adminClient = getAdminClient();
+    const userId = req.user.id;
+
+    // 1. Eliminar los alimentos anteriores de esa fecha
+    const { error: deleteError } = await adminClient
+      .from('menu_diario')
+      .delete()
+      .eq('fecha', fecha);
+      
+    if (deleteError) throw deleteError;
+
+    // 2. Insertar los nuevos
+    if (alimentos_ids.length > 0) {
+      const inserts = alimentos_ids.map(id => ({
+        fecha,
+        id_alimento: id,
+        created_by: userId
+      }));
+
+      const { error: insertError } = await adminClient
+        .from('menu_diario')
+        .insert(inserts);
+
+      if (insertError) throw insertError;
+    }
+
+    res.json({ success: true, message: 'Menú diario guardado correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

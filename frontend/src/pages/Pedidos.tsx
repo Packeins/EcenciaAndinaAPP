@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,8 +26,18 @@ import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { EditOrderDialog } from '@/components/orders/EditOrderDialog';
 import { NewOrderDialog } from '@/components/orders/NewOrderDialog';
-import { Pencil, CheckCircle, Phone, Search, MessageCircle, Plus, User, XCircle } from 'lucide-react';
+import { Pencil, CheckCircle, Phone, Search, MessageCircle, Plus, User, XCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Pedidos() {
   const { user } = useAuth();
@@ -34,6 +45,7 @@ export default function Pedidos() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
   const [filterEstado, setFilterEstado] = useState<string>('all');
   const [filterTipo, setFilterTipo] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,11 +53,18 @@ export default function Pedidos() {
   const [editingOrder, setEditingOrder] = useState<any | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; message: string; orderId: string; statusId: number; statusName: string } | null>(null);
+  const [errorDialog, setErrorDialog] = useState<string | null>(null);
 
   const fetchOrders = async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
     try {
-      const response = await apiFetch('/ordenes');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const startOfDay = today.toISOString();
+      today.setHours(23, 59, 59, 999);
+      const endOfDay = today.toISOString();
+      const response = await apiFetch(`/ordenes?fecha_inicio=${startOfDay}&fecha_fin=${endOfDay}`);
       if (response.ok) {
         const data = await response.json();
         setOrders(data);
@@ -64,6 +83,11 @@ export default function Pedidos() {
   }, []);
 
   const filteredOrders = orders.filter((order) => {
+    // Validar en el cliente que el created_at coincida con la fecha actual local
+    const orderDate = new Date(order.created_at).toLocaleDateString();
+    const today = new Date().toLocaleDateString();
+    if (orderDate !== today) return false;
+
     const estadoNombre = order.estados_orden?.nombre_estado?.toLowerCase() || 'reservado';
     const matchEstado = filterEstado === 'all' || estadoNombre === filterEstado;
     const tipoClienteReal = order.clientes?.tipos_cliente?.nombre_tipo?.toLowerCase().includes('convenio') ? 'convenio' : 'cliente';
@@ -102,28 +126,34 @@ export default function Pedidos() {
     fetchOrders(); // Refresh table after creating
   };
 
-  const handleUpdateStatus = async (orderId: string, newStatusId: number, statusName: string) => {
-    // Actualización optimista (inmediata en la UI)
-    setOrders((prev) =>
-      prev.map((o) => (o.id_orden === orderId ? { ...o, id_estado: newStatusId } : o))
-    );
-
+  const handleUpdateStatus = async (orderId: string, newStatusId: number, statusName: string, forceFallback = false) => {
     try {
       const response = await apiFetch(`/ordenes/${orderId}/estado`, {
         method: 'PUT',
-        body: JSON.stringify({ id_estado: newStatusId })
+        body: JSON.stringify({ id_estado: newStatusId, forceFallback })
       });
       if (response.ok) {
         toast.success(`Pedido marcado como ${statusName}`);
-        // Refrescar en segundo plano sin mostrar el "Cargando..."
         fetchOrders(false);
       } else {
-        toast.error('Error al actualizar el estado');
-        fetchOrders(false); // Revertir si falló
+        const data = await response.json().catch(() => ({}));
+        
+        if (response.status === 409 && data.requireConfirmation) {
+          setConfirmDialog({
+            open: true,
+            message: data.error,
+            orderId,
+            statusId: newStatusId,
+            statusName
+          });
+        } else if (response.status === 400 && data.error?.includes('saldo')) {
+          setErrorDialog(data.error);
+        } else {
+          toast.error(data.error || 'Error al actualizar el estado');
+        }
       }
     } catch (err) {
       toast.error('Error de conexión');
-      fetchOrders(false); // Revertir si falló
     }
   };
 
@@ -136,13 +166,17 @@ export default function Pedidos() {
           <h1 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-cafe to-terracota">
             Pedidos
           </h1>
-          <p className="text-muted-foreground text-lg">Gestión de pedidos recibidos por WhatsApp</p>
+          <p className="text-muted-foreground text-lg">Gestión de pedidos diarios</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 shadow-lg shadow-primary/20 animate-pulse-subtle">
             <MessageCircle className="h-5 w-5 text-white" />
             <span className="font-bold text-white text-sm">{reservedCount} pedidos pendientes</span>
           </div>
+          <Button onClick={() => navigate('/historial-pedidos')} variant="outline" className="gap-2 border-cafe text-cafe hover:bg-cafe/10 h-11 px-4 rounded-xl font-bold shadow-lg shadow-cafe/5 transition-all">
+            <Search className="h-5 w-5" />
+            Historial
+          </Button>
           <Button onClick={() => setNewOrderOpen(true)} className="gap-2 bg-cafe hover:bg-cafe/90 h-11 px-6 rounded-xl font-bold shadow-lg shadow-cafe/20 transition-all hover:scale-[1.02]">
             <Plus className="h-5 w-5" />
             Nuevo Pedido
@@ -162,7 +196,7 @@ export default function Pedidos() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por nombre o WhatsApp..."
+                  placeholder="Buscar por nombre o teléfono..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -276,15 +310,15 @@ export default function Pedidos() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Select 
-                            value={order.id_estado ? order.id_estado.toString() : '1'} 
+                          <Select
+                            value={order.id_estado ? order.id_estado.toString() : '1'}
                             disabled={!isAdmin && (order.id_estado === 2 || order.id_estado === 3)}
                             onValueChange={(val) => {
                               const newStatusId = parseInt(val);
                               let statusName = 'reservado';
                               if (newStatusId === 2) statusName = 'consumido';
                               if (newStatusId === 3) statusName = 'cancelado';
-                              
+
                               if (newStatusId === 3) {
                                 if (confirm('¿Está seguro que desea cancelar este pedido?')) {
                                   handleUpdateStatus(order.id_orden, newStatusId, statusName);
@@ -297,8 +331,8 @@ export default function Pedidos() {
                             <SelectTrigger className={cn(
                               "w-[140px] h-8 text-xs font-bold border-none shadow-sm text-white transition-all",
                               (!order.id_estado || order.id_estado === 1) ? 'bg-oro hover:bg-oro/90' :
-                              order.id_estado === 2 ? 'bg-primary hover:bg-primary/90' :
-                              'bg-destructive hover:bg-destructive/90'
+                                order.id_estado === 2 ? 'bg-primary hover:bg-primary/90' :
+                                  'bg-destructive hover:bg-destructive/90'
                             )}>
                               <SelectValue placeholder="Estado" />
                             </SelectTrigger>
@@ -308,9 +342,9 @@ export default function Pedidos() {
                               <SelectItem value="3" className="font-bold text-popover-foreground">Cancelado</SelectItem>
                             </SelectContent>
                           </Select>
-                          
-                          <Button 
-                            variant="ghost" 
+
+                          <Button
+                            variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-primary"
                             disabled={!isAdmin && (order.id_estado === 2 || order.id_estado === 3)}
@@ -330,12 +364,63 @@ export default function Pedidos() {
         </CardContent>
       </Card>
 
-      <EditOrderDialog
-        order={editingOrder}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onSave={handleSaveOrder}
+      <EditOrderDialog 
+        order={editingOrder} 
+        open={dialogOpen} 
+        onOpenChange={setDialogOpen} 
+        onSave={handleSaveOrder} 
       />
+      
+      <AlertDialog open={!!confirmDialog} onOpenChange={(open) => !open && setConfirmDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              Atención
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base text-foreground mt-2">
+              {confirmDialog?.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={() => {
+                if (confirmDialog) {
+                  handleUpdateStatus(
+                    confirmDialog.orderId, 
+                    confirmDialog.statusId, 
+                    confirmDialog.statusName, 
+                    true
+                  );
+                }
+              }}
+            >
+              Sí, utilizar saldo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!errorDialog} onOpenChange={(open) => !open && setErrorDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <XCircle className="h-5 w-5" />
+              Operación denegada
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base text-foreground mt-2">
+              {errorDialog}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setErrorDialog(null)}>
+              Entendido
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <NewOrderDialog
         open={newOrderOpen}
