@@ -9,14 +9,15 @@ router.use(roleMiddleware(['administrador', 'caja']));
 
 // CREAR UNA NUEVA ORDEN
 router.post('/', async (req, res) => {
-  const { id_cliente, id_estado, id_origen, canal_origen, observaciones, detalles } = req.body;
+  const { id_cliente, id_estado, id_origen, canal_origen, observaciones, detalles, metodo_pago } = req.body;
 
   try {
     const adminClient = getAdminClient();
+
     // 1. Crear la cabecera de la Orden
     const { data: orden, error: errorOrden } = await adminClient
       .from('ordenes')
-      .insert([{ id_cliente, id_estado, id_origen, canal_origen, observaciones, created_by: req.user.id }])
+      .insert([{ id_cliente, id_estado, id_origen, canal_origen, observaciones, metodo_pago, created_by: req.user.id }])
       .select()
       .single();
 
@@ -47,14 +48,26 @@ router.post('/', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const adminClient = getAdminClient();
+    const { fecha_inicio, fecha_fin } = req.query;
+
+    // 1. Cancelar automáticamente pedidos reservados (estado 1) de días anteriores
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
     
-    // Fetch orders with related data
-    const { data: ordenes, error: errorOrdenes } = await adminClient
+    await adminClient
+      .from('ordenes')
+      .update({ id_estado: 3 }) // 3 es Cancelado
+      .eq('id_estado', 1)
+      .lt('created_at', todayStart.toISOString());
+    
+    // 2. Construir la consulta principal
+    let query = adminClient
       .from('ordenes')
       .select(`
         id_orden,
         id_estado,
         created_at,
+        updated_at,
         canal_origen,
         observaciones,
         created_by,
@@ -69,8 +82,20 @@ router.get('/', async (req, res) => {
           opciones,
           productos ( nombre_producto )
         )
-      `)
-      .order('created_at', { ascending: false });
+      `);
+
+    if (fecha_inicio) {
+      query = query.gte('created_at', fecha_inicio);
+    }
+    if (fecha_fin) {
+      query = query.lte('created_at', fecha_fin);
+    }
+
+    // Aplicar ordenamiento al final (Supabase requiere filtros antes de modificadores)
+    query = query.order('created_at', { ascending: false });
+
+    // Fetch orders with related data
+    const { data: ordenes, error: errorOrdenes } = await query;
 
     if (errorOrdenes) throw errorOrdenes;
 
@@ -143,13 +168,130 @@ router.put('/:id', async (req, res) => {
 
 // ACTUALIZAR ESTADO DE LA ORDEN
 router.put('/:id/estado', async (req, res) => {
-  const { id_estado } = req.body;
+  const { id_estado, forceFallback } = req.body;
+  const id_orden = req.params.id;
   try {
     const adminClient = getAdminClient();
+
+    // Si se marca como Consumido (2)
+    if (id_estado === 2) {
+      // Obtener detalles de la orden y cliente
+      const { data: orden, error: errOrden } = await adminClient
+        .from('ordenes')
+        .select('id_cliente, metodo_pago, detalle_orden(id_producto, cantidad)')
+        .eq('id_orden', id_orden)
+        .single();
+      
+      if (errOrden) throw errOrden;
+
+      // Verificar y descontar si es Saldo Prepago
+      if (orden.metodo_pago === 'Saldo Prepago') {
+        // Obtenemos todos los saldos del cliente junto con los precios de los productos
+        const { data: saldosCliente, error: errSaldos } = await adminClient
+          .from('saldos_servicio')
+          .select('id_producto, cantidad_disponible, productos(precio_unitario, nombre_producto)')
+          .eq('id_cliente', orden.id_cliente)
+          .gt('cantidad_disponible', 0);
+
+        if (errSaldos) throw errSaldos;
+
+        // Obtenemos los precios de los productos que se están pidiendo
+        const idsPedidos = orden.detalle_orden.map(d => d.id_producto);
+        const { data: productosPedidos, error: errProd } = await adminClient
+          .from('productos')
+          .select('id_producto, precio_unitario')
+          .in('id_producto', idsPedidos);
+
+        if (errProd) throw errProd;
+
+        // Copia local de los saldos para ir descontando en memoria
+        // supabase devuelve s.productos como objeto (o array de 1 en algunos casos, probaremos objeto primero)
+        let saldosDisponibles = saldosCliente.map(s => ({
+          id_producto: s.id_producto,
+          cantidad: s.cantidad_disponible,
+          precio: Array.isArray(s.productos) ? s.productos[0]?.precio_unitario : s.productos?.precio_unitario
+        }));
+
+        const deducciones = [];
+
+        let fallbackUsed = false;
+
+        for (const det of orden.detalle_orden) {
+          const prodPedido = productosPedidos.find(p => p.id_producto === det.id_producto);
+          const precioPedido = prodPedido ? prodPedido.precio_unitario : 0;
+          let cantidadRestante = det.cantidad;
+
+          // 1. Intentar descontar del saldo exacto primero
+          const saldoExacto = saldosDisponibles.find(s => s.id_producto === det.id_producto);
+          if (saldoExacto && saldoExacto.cantidad > 0) {
+            const descontar = Math.min(saldoExacto.cantidad, cantidadRestante);
+            saldoExacto.cantidad -= descontar;
+            cantidadRestante -= descontar;
+            deducciones.push({ id_producto_saldo: saldoExacto.id_producto, cantidad: descontar });
+          }
+
+          // 2. Si aún falta, buscar saldos iguales o más caros
+          if (cantidadRestante > 0) {
+            const saldosMasCaros = saldosDisponibles
+              .filter(s => s.precio >= precioPedido && s.cantidad > 0)
+              .sort((a, b) => a.precio - b.precio);
+
+            for (const saldoCaro of saldosMasCaros) {
+              if (cantidadRestante === 0) break;
+              const descontar = Math.min(saldoCaro.cantidad, cantidadRestante);
+              saldoCaro.cantidad -= descontar;
+              cantidadRestante -= descontar;
+              deducciones.push({ id_producto_saldo: saldoCaro.id_producto, cantidad: descontar });
+              
+              if (saldoCaro.id_producto !== det.id_producto && saldoCaro.precio > precioPedido) {
+                fallbackUsed = true;
+              }
+            }
+          }
+
+          if (cantidadRestante > 0) {
+            return res.status(400).json({ error: 'El cliente no tiene saldo suficiente en su monedero. Por favor recargue el saldo.' });
+          }
+        }
+
+        if (fallbackUsed && !forceFallback) {
+          return res.status(409).json({ 
+            requireConfirmation: true, 
+            error: 'El cliente no tiene saldo exacto para este producto. Se utilizará el saldo de un almuerzo equivalente. ¿Desea continuar?' 
+          });
+        }
+
+        // Agrupar deducciones por producto para realizar los updates
+        const deduccionesAgrupadas = {};
+        for (const ded of deducciones) {
+          deduccionesAgrupadas[ded.id_producto_saldo] = (deduccionesAgrupadas[ded.id_producto_saldo] || 0) + ded.cantidad;
+        }
+
+        // Aplicar los descuentos reales a la BD
+        for (const [id_producto_saldo, cant_a_descontar] of Object.entries(deduccionesAgrupadas)) {
+          const { data: saldoActual } = await adminClient
+            .from('saldos_servicio')
+            .select('cantidad_disponible')
+            .eq('id_cliente', orden.id_cliente)
+            .eq('id_producto', id_producto_saldo)
+            .single();
+
+          await adminClient
+            .from('saldos_servicio')
+            .update({ 
+              cantidad_disponible: saldoActual.cantidad_disponible - cant_a_descontar, 
+              updated_by: req.user.id 
+            })
+            .eq('id_cliente', orden.id_cliente)
+            .eq('id_producto', id_producto_saldo);
+        }
+      }
+    }
+
     const { data, error } = await adminClient
       .from('ordenes')
-      .update({ id_estado })
-      .eq('id_orden', req.params.id)
+      .update({ id_estado, updated_by: req.user.id })
+      .eq('id_orden', id_orden)
       .select()
       .single();
 

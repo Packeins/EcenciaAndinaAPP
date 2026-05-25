@@ -16,6 +16,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Minus, Trash2, ShoppingCart, Utensils } from 'lucide-react';
 import { toast } from 'sonner';
+import { useMenu } from '@/data/menuStore';
 
 export interface OrderItem {
   id_producto: string;
@@ -24,6 +25,7 @@ export interface OrderItem {
   cantidad: number;
   sopa?: string;
   segundo?: string;
+  guarnicion?: string;
   id_categoria: number;
 }
 
@@ -36,6 +38,8 @@ interface OrderFormFieldsProps {
   state: OrderFormState;
   onChange: (next: OrderFormState) => void;
   showProductos?: boolean;
+  availableBalances?: Record<string, number> | null;
+  isFrecuente?: boolean;
 }
 
 interface Category {
@@ -51,7 +55,7 @@ interface Product {
   categoria_nombre: string;
 }
 
-export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
+export function OrderFormFields({ state, onChange, showProductos = true, availableBalances = null, isFrecuente = false }: OrderFormFieldsProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -61,7 +65,17 @@ export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [currentSopa, setCurrentSopa] = useState('');
   const [currentSegundo, setCurrentSegundo] = useState('');
+  const [currentGuarnicion, setCurrentGuarnicion] = useState('');
   const [currentCantidad, setCurrentCantidad] = useState(1);
+
+  const { sopas: menuSopas, segundos: menuSegundos, guarniciones: menuGuarniciones } = useMenu();
+  const validSopas = useMemo(() => menuSopas.filter(s => s.trim() !== ''), [menuSopas]);
+  const validSegundos = useMemo(() => menuSegundos.filter(s => s.trim() !== ''), [menuSegundos]);
+  const validGuarniciones = useMemo(() => menuGuarniciones.filter(s => s.trim() !== ''), [menuGuarniciones]);
+
+  const [isCustomSopa, setIsCustomSopa] = useState(false);
+  const [isCustomSegundo, setIsCustomSegundo] = useState(false);
+  const [isCustomGuarnicion, setIsCustomGuarnicion] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -82,8 +96,31 @@ export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
   }, []);
 
   const filteredProducts = useMemo(() => {
-    return allProducts.filter(p => p.id_categoria.toString() === currentCategory);
-  }, [allProducts, currentCategory]);
+    let prods = allProducts.filter(p => p.id_categoria.toString() === currentCategory);
+    if (availableBalances !== null) {
+      prods = prods.filter(p => (availableBalances[p.id.toString()] || 0) > 0);
+    }
+    return prods;
+  }, [allProducts, currentCategory, availableBalances]);
+
+  const filteredCategories = useMemo(() => {
+    let cats = categories;
+    
+    // Si es frecuente, solo mostrar almuerzos
+    if (isFrecuente) {
+      cats = cats.filter(c => c.nombre_categoria.toLowerCase().includes('almuerzo'));
+    }
+
+    if (availableBalances === null) return cats;
+    
+    const validCategoryIds = new Set();
+    allProducts.forEach(p => {
+      if ((availableBalances[p.id.toString()] || 0) > 0) {
+        validCategoryIds.add(p.id_categoria);
+      }
+    });
+    return cats.filter(c => validCategoryIds.has(c.id_categoria));
+  }, [categories, allProducts, availableBalances, isFrecuente]);
 
   const handleAddItem = () => {
     if (!currentProduct) {
@@ -108,6 +145,16 @@ export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
       return;
     }
 
+    if (availableBalances !== null) {
+      const addedQuantity = state.items.filter(i => i.id_producto === currentProduct.id).reduce((acc, curr) => acc + curr.cantidad, 0);
+      const totalWanted = addedQuantity + currentCantidad;
+      const allowed = availableBalances[currentProduct.id.toString()] || 0;
+      if (totalWanted > allowed) {
+        toast.error(`Solo tiene ${allowed} disponibles en su monedero para este producto`);
+        return;
+      }
+    }
+
     const newItem: OrderItem = {
       id_producto: currentProduct.id,
       nombre: currentProduct.nombre,
@@ -115,7 +162,8 @@ export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
       cantidad: currentCantidad,
       id_categoria: currentProduct.id_categoria,
       ...(requireSopa ? { sopa: currentSopa } : {}),
-      ...(requireSegundo ? { segundo: currentSegundo } : {})
+      ...(requireSegundo ? { segundo: currentSegundo } : {}),
+      ...(requireSegundo ? { guarnicion: currentGuarnicion } : {})
     };
 
     onChange({
@@ -128,7 +176,11 @@ export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
     setCurrentProduct(null);
     setCurrentSopa('');
     setCurrentSegundo('');
+    setCurrentGuarnicion('');
     setCurrentCantidad(1);
+    setIsCustomSopa(false);
+    setIsCustomSegundo(false);
+    setIsCustomGuarnicion(false);
     toast.success(`${newItem.nombre} agregado al pedido`);
   };
 
@@ -161,7 +213,7 @@ export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
                   <SelectValue placeholder="Elija categoría" />
                 </SelectTrigger>
                 <SelectContent className="bg-white border-border shadow-xl">
-                  {categories.map((c) => (
+                  {filteredCategories.map((c) => (
                     <SelectItem key={c.id_categoria} value={c.id_categoria.toString()}>
                       {c.nombre_categoria}
                     </SelectItem>
@@ -204,24 +256,119 @@ export function OrderFormFields({ state, onChange }: OrderFormFieldsProps) {
               <div className={`grid gap-4 ${showSopaField && showSegundoField ? 'md:grid-cols-2' : 'md:grid-cols-1'} p-4 bg-primary/5 rounded-xl border border-primary/10 animate-in slide-in-from-top-2 duration-300`}>
                 {showSopaField && (
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-cafe/70">¿Qué sopa desea?</Label>
-                    <Input 
-                      placeholder="Ej: Crema de Zapallo" 
-                      value={currentSopa} 
-                      onChange={e => setCurrentSopa(e.target.value)}
-                      className="bg-background"
-                    />
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-cafe/70">¿Qué sopa desea?</Label>
+                      {isCustomSopa && validSopas.length > 0 && (
+                        <button type="button" onClick={() => setIsCustomSopa(false)} className="text-[10px] text-primary hover:underline">
+                          Ver menú
+                        </button>
+                      )}
+                    </div>
+                    {(!isCustomSopa && validSopas.length > 0) ? (
+                      <Select value={currentSopa} onValueChange={(v) => {
+                        if (v === 'custom') {
+                          setIsCustomSopa(true);
+                          setCurrentSopa('');
+                        } else {
+                          setCurrentSopa(v);
+                        }
+                      }}>
+                        <SelectTrigger className="bg-background text-cafe">
+                          <SelectValue placeholder="Elegir del menú..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white">
+                          {validSopas.map((s, idx) => (
+                            <SelectItem key={`sopa-${idx}`} value={s}>{s}</SelectItem>
+                          ))}
+                          <SelectItem value="custom" className="font-bold text-primary">Otra opción...</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input 
+                        placeholder="Ej: Crema de Zapallo" 
+                        value={currentSopa} 
+                        onChange={e => setCurrentSopa(e.target.value)}
+                        className="bg-background"
+                      />
+                    )}
                   </div>
                 )}
                 {showSegundoField && (
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-cafe/70">¿Qué segundo desea?</Label>
-                    <Input 
-                      placeholder="Ej: Pollo al Horno" 
-                      value={currentSegundo} 
-                      onChange={e => setCurrentSegundo(e.target.value)}
-                      className="bg-background"
-                    />
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-cafe/70">¿Qué segundo desea?</Label>
+                      {isCustomSegundo && validSegundos.length > 0 && (
+                        <button type="button" onClick={() => setIsCustomSegundo(false)} className="text-[10px] text-primary hover:underline">
+                          Ver menú
+                        </button>
+                      )}
+                    </div>
+                    {(!isCustomSegundo && validSegundos.length > 0) ? (
+                      <Select value={currentSegundo} onValueChange={(v) => {
+                        if (v === 'custom') {
+                          setIsCustomSegundo(true);
+                          setCurrentSegundo('');
+                        } else {
+                          setCurrentSegundo(v);
+                        }
+                      }}>
+                        <SelectTrigger className="bg-background text-cafe">
+                          <SelectValue placeholder="Elegir del menú..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white">
+                          {validSegundos.map((s, idx) => (
+                            <SelectItem key={`seg-${idx}`} value={s}>{s}</SelectItem>
+                          ))}
+                          <SelectItem value="custom" className="font-bold text-primary">Otra opción...</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input 
+                        placeholder="Ej: Pollo al Horno" 
+                        value={currentSegundo} 
+                        onChange={e => setCurrentSegundo(e.target.value)}
+                        className="bg-background"
+                      />
+                    )}
+                  </div>
+                )}
+                {showSegundoField && (
+                  <div className="space-y-1.5 md:col-span-2 lg:col-span-1">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-cafe/70">¿Qué guarnición desea?</Label>
+                      {isCustomGuarnicion && validGuarniciones.length > 0 && (
+                        <button type="button" onClick={() => setIsCustomGuarnicion(false)} className="text-[10px] text-primary hover:underline">
+                          Ver menú
+                        </button>
+                      )}
+                    </div>
+                    {(!isCustomGuarnicion && validGuarniciones.length > 0) ? (
+                      <Select value={currentGuarnicion} onValueChange={(v) => {
+                        if (v === 'custom') {
+                          setIsCustomGuarnicion(true);
+                          setCurrentGuarnicion('');
+                        } else {
+                          setCurrentGuarnicion(v);
+                        }
+                      }}>
+                        <SelectTrigger className="bg-background text-cafe">
+                          <SelectValue placeholder="Elegir del menú..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white">
+                          {validGuarniciones.map((s, idx) => (
+                            <SelectItem key={`guarn-${idx}`} value={s}>{s}</SelectItem>
+                          ))}
+                          <SelectItem value="custom" className="font-bold text-primary">Otra opción...</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input 
+                        placeholder="Ej: Porción de Arroz" 
+                        value={currentGuarnicion} 
+                        onChange={e => setCurrentGuarnicion(e.target.value)}
+                        className="bg-background"
+                      />
+                    )}
                   </div>
                 )}
               </div>

@@ -34,7 +34,7 @@ const formSchema = z.object({
   cedula: z.string().optional(),
   nombre: z.string().optional(),
   apellido: z.string().optional(),
-  whatsapp: z.string().optional(),
+  appMensajeria: z.string().optional(),
   tipoCliente: z.enum(['cliente', 'convenio']),
   convenioId: z.string().optional(),
 }).superRefine((data, ctx) => {
@@ -77,7 +77,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
       cedula: '',
       nombre: '',
       apellido: '',
-      whatsapp: '',
+      appMensajeria: '',
       tipoCliente: 'cliente',
       convenioId: '',
     }
@@ -94,6 +94,10 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
     observaciones: '',
   });
 
+  const [availableBalances, setAvailableBalances] = useState<Record<string, number> | null>(null);
+
+
+
   useEffect(() => {
     if (open) {
       reset({
@@ -102,7 +106,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
         cedula: '',
         nombre: '',
         apellido: '',
-        whatsapp: '',
+        appMensajeria: '',
         tipoCliente: 'cliente',
         convenioId: '',
       });
@@ -110,12 +114,19 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
         items: [],
         observaciones: '',
       });
+
     }
   }, [open, reset]);
 
   const selectedClient = clientes.find((c) => c.id === clienteId);
   const effectiveTipoCliente: ClientType = clientMode === 'existing' ? 'cliente' : (tipoCliente as ClientType);
   const showProductos = effectiveTipoCliente === 'convenio';
+
+  const isClientSelected = (clientMode === 'existing' && !!clienteId) || (clientMode === 'new' && !!tipoCliente && !!watch('cedula'));
+  const isFrecuente = clientMode === 'existing' ? (!selectedClient?.convenio && selectedClient?.id_tipo_cliente === 2) : (tipoCliente === 'cliente');
+  
+  let showOrderForm = isClientSelected;
+  let blockMessage = isClientSelected ? '' : 'Seleccione un cliente para continuar con el pedido.';
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -142,7 +153,7 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
               cedula: data.cedula, 
               nombre: data.nombre, 
               apellido: data.apellido, 
-              telefono: data.whatsapp 
+              telefono: data.appMensajeria 
             })
           });
         } else {
@@ -152,9 +163,9 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
               cedula: data.cedula, 
               nombre: data.nombre, 
               apellido: data.apellido, 
-              telefono: data.whatsapp, 
-              id_tipo_cliente: 1 
-            }) // 1 = Frecuente
+              telefono: data.appMensajeria, 
+              id_tipo_cliente: 2 
+            }) // 2 = Frecuente
           });
         }
 
@@ -190,11 +201,13 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
           id_estado: 1, // 'Reservado' - Assuming ID 1
           id_origen: 2,
           canal_origen: 'Sistema',
+          metodo_pago: (clientMode === 'existing' && (!selectedClient?.convenio && selectedClient?.id_tipo_cliente === 2)) || (clientMode === 'new' && tipoCliente === 'cliente') ? 'Saldo Prepago' : 'Convenio Empresa',
           observaciones: state.observaciones,
           detalles: state.items.map(item => {
             const opciones: Record<string, string> = {};
             if (item.sopa) opciones.sopa = item.sopa;
             if (item.segundo) opciones.segundo = item.segundo;
+            if (item.guarnicion) opciones.guarnicion = item.guarnicion;
             return {
               id_producto: item.id_producto,
               cantidad: item.cantidad,
@@ -303,8 +316,8 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
                   {errors.apellido && <span className="text-xs text-destructive">{errors.apellido.message}</span>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-cafe/70">WhatsApp</Label>
-                  <Input {...form.register('whatsapp')} placeholder="099..." className="bg-background" />
+                  <Label className="text-xs text-cafe/70">App de Mensajería</Label>
+                  <Input {...form.register('appMensajeria')} placeholder="099..." className="bg-background" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-cafe/70">Tipo de Cliente</Label>
@@ -357,13 +370,19 @@ export function NewOrderDialog({ open, onOpenChange, onCreate }: NewOrderDialogP
             )}
           </div>
 
-          <OrderFormFields state={state} onChange={setState} showProductos={showProductos} />
+          {showOrderForm ? (
+            <OrderFormFields state={state} onChange={setState} showProductos={showProductos} isFrecuente={isFrecuente} />
+          ) : (
+            <div className="p-8 border-2 border-dashed rounded-xl bg-muted/10 flex flex-col items-center justify-center text-center">
+              <p className="text-sm font-semibold text-muted-foreground">{blockMessage}</p>
+            </div>
+          )}
           
           <DialogFooter className="pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
               Cancelar
             </Button>
-            <Button type="submit" className="flex-1 bg-cafe hover:bg-cafe/90 h-12 text-lg font-bold shadow-lg shadow-cafe/20 transition-all hover:scale-[1.02]" disabled={isSaving}>
+            <Button type="submit" disabled={!showOrderForm || isSaving} className="flex-1 bg-cafe hover:bg-cafe/90 h-12 text-lg font-bold shadow-lg shadow-cafe/20 transition-all hover:scale-[1.02]">
               {isSaving ? 'Guardando...' : 'Crear Pedido'}
             </Button>
           </DialogFooter>

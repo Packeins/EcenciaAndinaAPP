@@ -33,13 +33,38 @@ export default function Menu() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [catRes, alimRes] = await Promise.all([
+        const [catRes, alimRes, menuRes] = await Promise.all([
           apiFetch('/alimentos/categorias'),
-          apiFetch('/alimentos')
+          apiFetch('/alimentos'),
+          apiFetch('/alimentos/menu-diario/hoy')
         ]);
+        let fetchedCats: any = [];
+        if (catRes.ok) {
+          fetchedCats = await catRes.json();
+          setCategories(fetchedCats);
+        }
         
-        if (catRes.ok) setCategories(await catRes.json());
-        if (alimRes.ok) setAllAlimentos(await alimRes.json());
+        let fetchedAlimentos = [];
+        if (alimRes.ok) {
+          fetchedAlimentos = await alimRes.json();
+          setAllAlimentos(fetchedAlimentos);
+        }
+
+        if (menuRes.ok) {
+          const menuHoy = await menuRes.json();
+          // Cargar datos en el store global
+          if (menuHoy.imagen_url) menuStore.setDailyImage(menuHoy.imagen_url);
+          
+          if (menuHoy.alimentos && menuHoy.alimentos.length > 0) {
+            const loadedSopas = menuHoy.alimentos.filter((a: any) => a.id_categoria === getCategoryId('Sopa', fetchedCats)).map((a: any) => a.nombre);
+            const loadedSegundos = menuHoy.alimentos.filter((a: any) => a.id_categoria === getCategoryId('Segundo', fetchedCats)).map((a: any) => a.nombre);
+            const loadedGuarniciones = menuHoy.alimentos.filter((a: any) => a.id_categoria === getCategoryId('Guarni', fetchedCats)).map((a: any) => a.nombre);
+            
+            if (loadedSopas.length > 0) menuStore.setSopas(loadedSopas);
+            if (loadedSegundos.length > 0) menuStore.setSegundos(loadedSegundos);
+            if (loadedGuarniciones.length > 0) menuStore.setGuarniciones(loadedGuarniciones);
+          }
+        }
       } catch (err) {
         // Error silenciado para limpieza
       }
@@ -56,17 +81,43 @@ export default function Menu() {
     }
     
     setIsSending(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
     
-    toast.success('¡Menú del día enviado correctamente!', {
-      description: 'Se notificará a los contactos de WhatsApp configurados.'
+    // Convertir strings a ids para enviar
+    const alimentosIds: number[] = [];
+    [...sopas, ...segundos, ...guarniciones].filter(s => s.trim() !== '').forEach(nombre => {
+      const found = allAlimentos.find(a => a.nombre === nombre);
+      if (found) alimentosIds.push(found.id);
     });
-    setIsSending(false);
+
+    try {
+      const res = await apiFetch('/alimentos/menu-diario', {
+        method: 'POST',
+        body: JSON.stringify({
+          fecha: new Date().toISOString().split('T')[0],
+          alimentos_ids: alimentosIds,
+          imagen_url: image
+        })
+      });
+
+      if (res.ok) {
+        toast.success('¡Menú del día guardado correctamente!', {
+          description: 'El menú está listo y disponible para tomar pedidos.'
+        });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || 'Error al guardar el menú en la base de datos');
+      }
+    } catch (err) {
+      toast.error('Error de red al guardar el menú');
+    } finally {
+      setIsSending(false);
+    }
   };
 
-  const getCategoryId = (name: string) => {
+  const getCategoryId = (name: string, overrideCategories?: Category[]) => {
     const search = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const cat = categories.find(c => {
+    const catsToUse = overrideCategories || categories;
+    const cat = catsToUse.find(c => {
       const catName = c.nombre_categoria.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       return catName.includes(search);
     });
@@ -302,7 +353,7 @@ export default function Menu() {
           </Button>
           
           <p className="text-center text-sm text-muted-foreground px-4">
-            Al presionar enviar, el menú se compartirá con todos los contactos de WhatsApp registrados.
+            Al presionar enviar, el menú se compartirá con todos los contactos de la app de mensajería registrados.
           </p>
         </div>
       </div>

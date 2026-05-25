@@ -78,7 +78,7 @@ export interface Order {
   id: string;
   clienteId: string;
   clienteNombre: string;
-  whatsapp: string;
+  appMensajeria: string;
   tipoCliente: ClientType;
   convenioNombre?: string;
   almuerzo: string;

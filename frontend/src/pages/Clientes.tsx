@@ -33,7 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Pencil, User, Phone, Search, IdCard, Users, Building2, Trash2, Filter, Activity, UserCheck } from 'lucide-react';
+import { Plus, Pencil, User, Phone, Search, IdCard, Users, Building2, Trash2, Filter, Activity, UserCheck, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import {
@@ -43,6 +43,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { WalletDialog } from '@/components/clients/WalletDialog';
+import { RechargeDialog } from '@/components/clients/RechargeDialog';
+import { Banknote } from 'lucide-react';
 
 export default function Clientes() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -50,6 +53,11 @@ export default function Clientes() {
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  
+  const [walletOpen, setWalletOpen] = useState(false);
+  const [walletClient, setWalletClient] = useState<Client | null>(null);
+
+  const [rechargeOpen, setRechargeOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -150,6 +158,11 @@ export default function Clientes() {
       id_tipo_cliente: client.id_tipo_cliente || 1,
     });
     setDialogOpen(true);
+  };
+
+  const handleOpenWallet = (client: Client) => {
+    setWalletClient(client);
+    setWalletOpen(true);
   };
 
   // --- GUARDAR (CREAR O ACTUALIZAR) ---
@@ -253,10 +266,16 @@ export default function Clientes() {
           </h1>
           <p className="text-muted-foreground text-lg">Administración de clientes y colaboradores de Ecencia Andina</p>
         </div>
-        <Button onClick={handleOpenNew} className="gap-2 bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20 h-12 px-6 rounded-xl font-bold transition-all hover:scale-[1.02]">
-          <Plus className="h-5 w-5" />
-          Nuevo Cliente
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button onClick={() => setRechargeOpen(true)} variant="outline" className="gap-2 border-cafe text-cafe hover:bg-cafe/10 shadow-lg shadow-cafe/5 h-12 px-6 rounded-xl font-bold transition-all hover:scale-[1.02]">
+            <Banknote className="h-5 w-5" />
+            Recargar Saldo
+          </Button>
+          <Button onClick={handleOpenNew} className="gap-2 bg-cafe hover:bg-cafe/90 shadow-lg shadow-cafe/20 h-12 px-6 rounded-xl font-bold transition-all hover:scale-[1.02]">
+            <Plus className="h-5 w-5" />
+            Nuevo Cliente
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -463,6 +482,11 @@ export default function Clientes() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-2">
+                          {(!client.convenio && client.id_tipo_cliente === 2) && (
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenWallet(client)} title="Monedero Virtual">
+                              <Wallet className="h-4 w-4 text-primary" />
+                            </Button>
+                          )}
                           <Switch
                             checked={client.activo}
                             onCheckedChange={() => handleToggleClick(client)}
@@ -616,6 +640,18 @@ export default function Clientes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <WalletDialog 
+        open={walletOpen}
+        onOpenChange={setWalletOpen}
+        client={walletClient}
+      />
+
+      <RechargeDialog
+        open={rechargeOpen}
+        onOpenChange={setRechargeOpen}
+        clients={clients}
+      />
 
       {/* Confirmación para desactivar */}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>

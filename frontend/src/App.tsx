@@ -8,6 +8,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Pedidos from './pages/Pedidos';
+import HistorialPedidos from './pages/HistorialPedidos';
 import Reportes from './pages/Reportes';
 import Convenios from './pages/Convenios';
 import Clientes from './pages/Clientes';
@@ -36,6 +37,7 @@ const App = () => (
               <Route element={<DashboardLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/pedidos" element={<Pedidos />} />
+                <Route path="/historial-pedidos" element={<HistorialPedidos />} />
                 <Route path="/perfil" element={<Perfil />} />
                 
                 {/* Rutas exclusivas de administrador */}
