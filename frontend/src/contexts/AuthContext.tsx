@@ -16,17 +16,19 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-
-  React.useEffect(() => {
+  const [user, setUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        return JSON.parse(savedUser);
       } catch (e) {
         console.error('Error parsing user:', e);
       }
     }
+    return null;
+  });
+
+  React.useEffect(() => {
 
     // Escuchar cambios en localStorage (para cerrar sesión en todas las pestañas)
     const handleStorageChange = (e: StorageEvent) => {

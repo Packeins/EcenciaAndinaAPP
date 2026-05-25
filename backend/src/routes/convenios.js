@@ -236,15 +236,25 @@ router.put('/:id', async (req, res) => {
     if (fecha_inicio || fecha_caducidad) {
       const { data: actual } = await adminClient.from('convenios').select('*').eq('id_convenio', id).single();
       if (actual) {
-        // Solo guardamos en historial si ya tenía fechas previas
-        await adminClient.from('ConvenioHistorial').insert([{
-          id_convenio: id,
-          fecha_inicio: actual.fecha_inicio,
-          fecha_caducidad: actual.fecha_caducidad,
-          archivo_firmado: actual.archivo_firmado
-        }]);
-        // Al renovar, el nuevo periodo empieza sin archivo firmado (debe subirse el nuevo)
-        actualizacion.archivo_firmado = null;
+        // Verificar si las fechas realmente cambiaron para considerar que es una renovación
+        const formatDate = (dateStr) => dateStr ? new Date(dateStr).toISOString().split('T')[0] : null;
+        const dbInicio = formatDate(actual.fecha_inicio);
+        const reqInicio = formatDate(fecha_inicio);
+        const dbFin = formatDate(actual.fecha_caducidad);
+        const reqFin = formatDate(fecha_caducidad);
+
+        if ((reqInicio && reqInicio !== dbInicio) || (reqFin && reqFin !== dbFin)) {
+          // Solo guardamos en historial si ya tenía fechas previas y hubo un cambio
+          const { error: insertError } = await adminClient.from('conveniohistorial').insert([{
+            id_convenio: id,
+            fecha_inicio: actual.fecha_inicio,
+            fecha_caducidad: actual.fecha_caducidad,
+            archivo_firmado: actual.archivo_firmado
+          }]);
+          if (insertError) console.error('Error al guardar historial:', insertError);
+          // Al renovar, el nuevo periodo empieza sin archivo firmado (debe subirse el nuevo)
+          actualizacion.archivo_firmado = null;
+        }
       }
     }
 
@@ -261,7 +271,7 @@ router.get('/:id/historial', async (req, res) => {
   try {
     const adminClient = getAdminClient();
     const { data, error } = await adminClient
-      .from('ConvenioHistorial')
+      .from('conveniohistorial')
       .select('*')
       .eq('id_convenio', req.params.id)
       .order('fecha_registro', { ascending: false });
@@ -295,6 +305,91 @@ router.post('/:id/upload', upload.single('archivo'), async (req, res) => {
     
     if (error) throw error;
     res.json(formatConvenio(data));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// OBTENER REPORTE DE CONSUMOS
+router.get('/:id/reporte', async (req, res) => {
+  const { id } = req.params;
+  const { fecha_inicio, fecha_fin } = req.query;
+
+  try {
+    const adminClient = getAdminClient();
+
+    // 1. Obtener los IDs de los clientes asociados a este convenio
+    const { data: clientesConvenio, error: errorClientes } = await adminClient
+      .from('clientes_convenios')
+      .select('id_cliente')
+      .eq('id_convenio', id);
+
+    if (errorClientes) throw errorClientes;
+
+    const clienteIds = clientesConvenio.map(c => c.id_cliente);
+
+    if (clienteIds.length === 0) {
+      return res.json([]);
+    }
+
+    // 2. Obtener las órdenes de estos clientes
+    let query = adminClient
+      .from('ordenes')
+      .select(`
+        id_orden,
+        created_at,
+        clientes(id_cliente, nombre, apellido, cedula),
+        detalle_orden(cantidad, precio_aplicado, productos(nombre_producto))
+      `)
+      .in('id_cliente', clienteIds)
+      .or('metodo_pago.eq.Convenio Empresa,metodo_pago.is.null')
+      .eq('id_estado', 2); // Consumido
+
+    if (fecha_inicio) query = query.gte('created_at', `${fecha_inicio}T00:00:00.000Z`);
+    if (fecha_fin) query = query.lte('created_at', `${fecha_fin}T23:59:59.999Z`);
+
+    const { data: ordenes, error: errorOrdenes } = await query;
+    if (errorOrdenes) throw errorOrdenes;
+
+    // 3. Agrupar por empleado
+    const reporteMap = {};
+
+    (ordenes || []).forEach(orden => {
+      const cli = orden.clientes;
+      if (!cli) return;
+      const clienteId = cli.id_cliente;
+      
+      if (!reporteMap[clienteId]) {
+        reporteMap[clienteId] = {
+          empleado: `${cli.nombre} ${cli.apellido}`,
+          cedula: cli.cedula,
+          total: 0,
+          consumos: []
+        };
+      }
+
+      (orden.detalle_orden || []).forEach(det => {
+        const valor = det.cantidad * det.precio_aplicado;
+        reporteMap[clienteId].total += valor;
+        reporteMap[clienteId].consumos.push({
+          fecha: orden.created_at,
+          producto: det.productos?.nombre_producto || 'Sin producto',
+          cantidad: det.cantidad,
+          valor: valor
+        });
+      });
+    });
+
+    const reporteArray = Object.values(reporteMap);
+    // Ordenar consumos de cada empleado por fecha descendente
+    reporteArray.forEach(emp => {
+      emp.consumos.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+    });
+    
+    // Ordenar empleados alfabéticamente
+    reporteArray.sort((a, b) => a.empleado.localeCompare(b.empleado));
+
+    res.json(reporteArray);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

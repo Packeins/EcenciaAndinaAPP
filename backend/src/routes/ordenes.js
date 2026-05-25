@@ -14,6 +14,35 @@ router.post('/', async (req, res) => {
   try {
     const adminClient = getAdminClient();
 
+    // Validar si el método de pago es Convenio Empresa
+    if (metodo_pago === 'Convenio Empresa') {
+      const { data: cliente, error: errCliente } = await adminClient
+        .from('clientes')
+        .select(`
+          clientes_convenios(
+            convenios(id_convenio, esta_activo, fecha_caducidad)
+          )
+        `)
+        .eq('id_cliente', id_cliente)
+        .single();
+      
+      if (errCliente) throw errCliente;
+      
+      const convenioRel = cliente.clientes_convenios?.[0]?.convenios;
+      
+      if (!convenioRel) {
+        return res.status(400).json({ error: 'El cliente no cuenta con convenio asociado. Por favor asigne el convenio antes de confirmar el pedido.' });
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const isExpired = convenioRel.fecha_caducidad ? new Date(convenioRel.fecha_caducidad + 'T00:00:00') < today : false;
+      
+      if (!convenioRel.esta_activo || isExpired) {
+        return res.status(400).json({ error: 'El convenio no se encuentra habilitado y es necesario que se gestione.' });
+      }
+    }
+
     // 1. Crear la cabecera de la Orden
     const { data: orden, error: errorOrden } = await adminClient
       .from('ordenes')
@@ -183,6 +212,35 @@ router.put('/:id/estado', async (req, res) => {
         .single();
       
       if (errOrden) throw errOrden;
+
+      // Validar si el cliente tiene convenio habilitado
+      if (orden.metodo_pago === 'Convenio Empresa') {
+        const { data: cliente, error: errCliente } = await adminClient
+          .from('clientes')
+          .select(`
+            clientes_convenios(
+              convenios(id_convenio, esta_activo, fecha_caducidad)
+            )
+          `)
+          .eq('id_cliente', orden.id_cliente)
+          .single();
+        
+        if (errCliente) throw errCliente;
+        
+        const convenioRel = cliente.clientes_convenios?.[0]?.convenios;
+        
+        if (!convenioRel) {
+          return res.status(400).json({ error: 'El cliente no cuenta con convenio asociado. Por favor asigne el convenio antes de confirmar el pedido.' });
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const isExpired = convenioRel.fecha_caducidad ? new Date(convenioRel.fecha_caducidad + 'T00:00:00') < today : false;
+        
+        if (!convenioRel.esta_activo || isExpired) {
+          return res.status(400).json({ error: 'El convenio no se encuentra habilitado y es necesario que se gestione.' });
+        }
+      }
 
       // Verificar y descontar si es Saldo Prepago
       if (orden.metodo_pago === 'Saldo Prepago') {

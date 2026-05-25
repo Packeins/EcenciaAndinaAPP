@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,12 +16,14 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const { login, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || (user?.rol === 'administrador' ? '/dashboard' : '/pedidos');
 
   useEffect(() => {
     if (user && !window.location.hash.includes('type=recovery')) {
-      navigate(user.rol === 'administrador' ? '/dashboard' : '/pedidos');
+      navigate(from, { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, navigate, from]);
 
   // Recovery mode state
   const [recoveryToken, setRecoveryToken] = useState<string | null>(null);
@@ -75,7 +77,7 @@ export default function Login() {
     const result = await login(email, password);
     if (result.success) {
       toast.success('Bienvenido al sistema');
-      navigate(result.rol === 'administrador' ? '/dashboard' : '/pedidos');
+      navigate(from, { replace: true });
     } else {
       toast.error(result.message || 'Credenciales inválidas');
     }

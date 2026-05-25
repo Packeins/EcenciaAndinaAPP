@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Convenio, Client, ConvenioHistorial } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ export default function Convenios() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingConvenio, setEditingConvenio] = useState<Convenio | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [convenioToToggle, setConvenioToToggle] = useState<Convenio | null>(null);
@@ -47,6 +48,14 @@ export default function Convenios() {
 
   const [convenioHistorial, setConvenioHistorial] = useState<ConvenioHistorial[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+
+  // -- REPORTE DE CONSUMOS --
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [reportConvenio, setReportConvenio] = useState<Convenio | null>(null);
+  const [reportDates, setReportDates] = useState({ desde: '', hasta: '' });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [reportData, setReportData] = useState<any[]>([]);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const isExpired = (dateStr: string) => {
     if (!dateStr) return false;
@@ -285,6 +294,143 @@ export default function Convenios() {
     } finally { setIsSaving(false); }
   };
 
+  const handleOpenReport = (convenio: Convenio) => {
+    setReportConvenio(convenio);
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    setReportDates({
+      desde: firstDay.toISOString().split('T')[0],
+      hasta: lastDay.toISOString().split('T')[0]
+    });
+    setReportData([]);
+    setIsReportDialogOpen(true);
+  };
+
+  const handleGenerateReport = async () => {
+    if (!reportDates.desde || !reportDates.hasta) {
+      toast.error('Por favor seleccione ambas fechas');
+      return;
+    }
+    if (new Date(reportDates.hasta) < new Date(reportDates.desde)) {
+      toast.error('La fecha "Hasta" no puede ser inferior a la fecha "Desde"');
+      return;
+    }
+    setIsGeneratingReport(true);
+    try {
+      const response = await apiFetch(`/convenios/${reportConvenio?.id}/reporte?fecha_inicio=${reportDates.desde}&fecha_fin=${reportDates.hasta}`);
+      if (response.ok) {
+        const data = await response.json();
+        setReportData(data);
+      } else {
+        toast.error('Error al generar el reporte');
+      }
+    } catch (err) {
+      toast.error('Error al generar reporte');
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const handleExportReportPDF = () => {
+    try {
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        toast.error('Ventana emergente bloqueada');
+        return;
+      }
+
+      const granTotal = reportData.reduce((acc, curr) => acc + curr.total, 0);
+
+      let contenido = `
+        <html>
+          <head>
+            <title>Reporte de Consumos - ${reportConvenio?.nombre_empresa}</title>
+            <style>
+              body { font-family: 'Arial', sans-serif; padding: 20px 40px; color: #333; }
+              .header { text-align: center; border-bottom: 2px solid #8B4513; margin-bottom: 20px; padding-bottom: 10px; }
+              .header h2 { margin: 0; color: #8B4513; }
+              .header p { margin: 5px 0 0 0; font-size: 14px; color: #666; }
+              .totales { display: flex; justify-content: space-between; background: #fdf8f5; padding: 15px; border-radius: 8px; border: 1px solid #eaddd7; margin-bottom: 20px; }
+              .gran-total { font-size: 20px; font-weight: bold; color: #8B4513; }
+              .empleado-card { margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; page-break-inside: avoid; }
+              .empleado-header { background: #f5f5f5; padding: 10px 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #ddd; }
+              .empleado-header h4 { margin: 0; font-size: 16px; }
+              .empleado-total { font-weight: bold; color: #8B4513; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { padding: 8px 15px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+              th { background: #fafafa; font-weight: bold; color: #555; }
+              .text-right { text-align: right; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h2>ECENCIA ANDINA</h2>
+              <p>REPORTE DE CONSUMOS: <strong>${reportConvenio?.nombre_empresa}</strong></p>
+              <p>Periodo: ${reportDates.desde} al ${reportDates.hasta}</p>
+            </div>
+            
+            <div class="totales">
+              <div><strong>Total de Colaboradores:</strong> ${reportData.length}</div>
+              <div class="gran-total">Total Consumo Mensual: $${granTotal.toFixed(2)}</div>
+            </div>
+      `;
+
+      reportData.forEach(emp => {
+        contenido += `
+            <div class="empleado-card">
+              <div class="empleado-header">
+                <div>
+                  <h4>${emp.empleado}</h4>
+                  <span style="font-size: 12px; color: #666;">C.I: ${emp.cedula}</span>
+                </div>
+                <div class="empleado-total">Total: $${emp.total.toFixed(2)}</div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Producto</th>
+                    <th class="text-right">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        emp.consumos.forEach((cons: any) => {
+          contenido += `
+                  <tr>
+                    <td>${new Date(cons.fecha).toLocaleDateString('es-EC')}</td>
+                    <td>${cons.cantidad}x ${cons.producto}</td>
+                    <td class="text-right">$${cons.valor.toFixed(2)}</td>
+                  </tr>
+          `;
+        });
+        
+        contenido += `
+                </tbody>
+              </table>
+            </div>
+        `;
+      });
+
+      contenido += `
+          </body>
+        </html>
+      `;
+
+      printWindow.document.write(contenido);
+      printWindow.document.close();
+      
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 500);
+    } catch (err) {
+      toast.error('Error al generar el documento de reporte');
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -392,6 +538,7 @@ export default function Convenios() {
 
   const filteredAvailableClients = availableClients.filter(c => 
     c.id_tipo_cliente === 1 &&
+    !c.convenio &&
     !associatedClients.find(ac => ac.id === c.id) &&
     (clientSearch === '' || c.nombre.toLowerCase().includes(clientSearch.toLowerCase()) || c.cedula.includes(clientSearch))
   ).slice(0, 10);
@@ -455,37 +602,52 @@ export default function Convenios() {
                     />
                   </div>
                 </div>
-                <div className="flex items-center justify-between border-t pt-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2">
-                      <Switch 
-                        checked={convenio.activo && !isExpired(convenio.fecha_caducidad)} 
-                        onCheckedChange={() => handleToggleClick(convenio)} 
-                      />
-                      <span className={`text-[10px] font-bold uppercase ${isExpired(convenio.fecha_caducidad) ? 'text-destructive' : (convenio.activo ? 'text-primary' : 'text-muted-foreground')}`}>
-                        {isExpired(convenio.fecha_caducidad) ? 'Vencido' : (convenio.activo ? 'Activo' : 'Inactivo')}
-                      </span>
+                
+                <div className="flex flex-col gap-3 border-t pt-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Switch 
+                          checked={convenio.activo && !isExpired(convenio.fecha_caducidad)} 
+                          onCheckedChange={() => handleToggleClick(convenio)} 
+                        />
+                        <span className={`text-[10px] font-bold uppercase ${isExpired(convenio.fecha_caducidad) ? 'text-destructive' : (convenio.activo ? 'text-primary' : 'text-muted-foreground')}`}>
+                          {isExpired(convenio.fecha_caducidad) ? 'Vencido' : (convenio.activo ? 'Activo' : 'Inactivo')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleEdit(convenio)}
+                          disabled={isExpired(convenio.fecha_caducidad)}
+                        >
+                          <Pencil className="mr-1 h-4 w-4" /> Editar
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleExportPDF(convenio)} title="Exportar PDF">
-                        <FileDown className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors" />
-                      </Button>
-                      {convenio.archivo_firmado && (
-                        <Button variant="ghost" size="icon" onClick={() => window.open(convenio.archivo_firmado, '_blank')} title="Ver convenio firmado">
-                          <Eye className="h-4 w-4 text-primary animate-pulse" />
+                    
+                    <div className="flex flex-wrap items-center gap-2">
+                      {convenio.archivo_firmado ? (
+                        <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs flex-1 min-w-[100px] border-primary/30 text-primary hover:bg-primary/10" onClick={() => window.open(convenio.archivo_firmado, '_blank')}>
+                          <Eye className="h-3.5 w-3.5" /> Ver Contrato
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="gap-1.5 h-8 text-xs flex-1 min-w-[100px]" 
+                          onClick={() => handleExportPDF(convenio)}
+                          title="Generar documento para firmar"
+                        >
+                          <FileDown className="h-3.5 w-3.5 text-muted-foreground" /> Generar Contrato
                         </Button>
                       )}
+                      
+                      <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs flex-1 min-w-[100px] border-cafe/30 text-cafe hover:bg-cafe/10" onClick={() => handleOpenReport(convenio)}>
+                        <FileText className="h-3.5 w-3.5" /> Generar Reporte
+                      </Button>
                     </div>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => handleEdit(convenio)}
-                    disabled={isExpired(convenio.fecha_caducidad)}
-                  >
-                    <Pencil className="mr-1 h-4 w-4" /> Editar
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           ))}
@@ -586,11 +748,22 @@ export default function Convenios() {
                         </p>
                         <Input 
                           type="file" 
+                          ref={fileInputRef}
                           accept=".pdf,image/*" 
                           onChange={(e) => handleFileUpload(e, editingConvenio.id)}
                           disabled={isUploading}
-                          className="flex-1"
+                          className="hidden"
                         />
+                        <Button 
+                          type="button"
+                          variant="outline" 
+                          className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10" 
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploading}
+                        >
+                          <Upload className="h-4 w-4" />
+                          {isUploading ? 'Subiendo documento...' : 'Seleccionar documento firmado'}
+                        </Button>
                       </div>
                     ) : (
                       <div className="flex flex-col gap-3">
@@ -795,6 +968,100 @@ export default function Convenios() {
               {isSaving ? 'Renovando...' : 'Renovar y Activar'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Reporte de Consumos - {reportConvenio?.nombre_empresa}</DialogTitle>
+            <DialogDescription>Generar reporte de consumos por periodo.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap gap-4 items-end mb-4 bg-muted/20 p-4 rounded-lg border">
+            <div className="space-y-2">
+              <Label>Desde</Label>
+              <Input type="date" value={reportDates.desde} onChange={e => setReportDates({...reportDates, desde: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>Hasta</Label>
+              <Input type="date" value={reportDates.hasta} onChange={e => setReportDates({...reportDates, hasta: e.target.value})} />
+            </div>
+            <Button 
+              onClick={() => {
+                setReportData([]);
+                handleGenerateReport();
+              }} 
+              disabled={isGeneratingReport} 
+              className="bg-cafe hover:bg-cafe/90"
+            >
+              {isGeneratingReport ? 'Generando...' : 'Generar Reporte'}
+            </Button>
+          </div>
+
+          {reportData.length > 0 ? (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center bg-primary/10 p-4 rounded-xl border border-primary/20">
+                <span className="font-bold text-lg text-primary">Total Consumo Mensual</span>
+                <div className="flex items-center gap-4">
+                  <span className="text-2xl font-black text-primary">
+                    ${reportData.reduce((acc, curr) => acc + curr.total, 0).toFixed(2)}
+                  </span>
+                  <Button 
+                    onClick={handleExportReportPDF}
+                    variant="outline"
+                    className="gap-2 border-cafe text-cafe hover:bg-cafe/10"
+                  >
+                    <FileDown className="h-4 w-4" /> Exportar / Imprimir
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-4 grid-cols-1">
+                {reportData.map((emp: any) => (
+                  <Card key={emp.cedula} className="border shadow-sm">
+                    <CardHeader className="py-3 px-4 bg-muted/20 border-b">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <CardTitle className="text-sm font-bold text-cafe">{emp.empleado}</CardTitle>
+                          <CardDescription className="text-xs">C.I: {emp.cedula}</CardDescription>
+                        </div>
+                        <Badge variant="secondary" className="font-bold text-sm bg-primary/10 text-primary border-primary/20">
+                          ${emp.total.toFixed(2)}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="max-h-40 overflow-y-auto">
+                        <table className="w-full text-xs">
+                          <thead className="bg-accent/50 sticky top-0">
+                            <tr>
+                              <th className="text-left py-1.5 px-3 font-semibold">Fecha</th>
+                              <th className="text-left py-1.5 px-3 font-semibold">Producto</th>
+                              <th className="text-right py-1.5 px-3 font-semibold">Valor</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {emp.consumos.map((cons: any, idx: number) => (
+                              <tr key={idx} className="border-b last:border-0 hover:bg-muted/10">
+                                <td className="py-1.5 px-3 text-muted-foreground">
+                                  {new Date(cons.fecha).toLocaleDateString('es-EC', { day: '2-digit', month: 'short' })}
+                                </td>
+                                <td className="py-1.5 px-3">{cons.cantidad}x {cons.producto}</td>
+                                <td className="py-1.5 px-3 text-right font-medium">${cons.valor.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-10 text-muted-foreground bg-muted/5 rounded-xl border border-dashed">
+              {isGeneratingReport ? 'Cargando datos...' : 'No se encontraron consumos confirmados en este rango de fechas. Asegúrese de que los pedidos estén en estado "Consumido".'}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
