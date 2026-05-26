@@ -49,12 +49,24 @@ export default function Convenios() {
   const [convenioHistorial, setConvenioHistorial] = useState<ConvenioHistorial[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
+interface ReportConsumo {
+  fecha: string;
+  producto: string;
+  cantidad: number;
+  valor: number;
+}
+interface ReportEmployee {
+  empleado: string;
+  cedula: string;
+  total: number;
+  consumos: ReportConsumo[];
+}
+
   // -- REPORTE DE CONSUMOS --
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [reportConvenio, setReportConvenio] = useState<Convenio | null>(null);
   const [reportDates, setReportDates] = useState({ desde: '', hasta: '' });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [reportData, setReportData] = useState<any[]>([]);
+  const [reportData, setReportData] = useState<ReportEmployee[]>([]);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const isExpired = (dateStr: string) => {
@@ -397,7 +409,7 @@ export default function Convenios() {
                 <tbody>
         `;
         
-        emp.consumos.forEach((cons: any) => {
+        emp.consumos.forEach((cons: ReportConsumo) => {
           contenido += `
                   <tr>
                     <td>${new Date(cons.fecha).toLocaleDateString('es-EC')}</td>
@@ -1016,7 +1028,7 @@ export default function Convenios() {
                 </div>
               </div>
               <div className="grid gap-4 grid-cols-1">
-                {reportData.map((emp: any) => (
+                {reportData.map((emp: ReportEmployee) => (
                   <Card key={emp.cedula} className="border shadow-sm">
                     <CardHeader className="py-3 px-4 bg-muted/20 border-b">
                       <div className="flex justify-between items-center">
@@ -1040,7 +1052,7 @@ export default function Convenios() {
                             </tr>
                           </thead>
                           <tbody>
-                            {emp.consumos.map((cons: any, idx: number) => (
+                            {emp.consumos.map((cons: ReportConsumo, idx: number) => (
                               <tr key={idx} className="border-b last:border-0 hover:bg-muted/10">
                                 <td className="py-1.5 px-3 text-muted-foreground">
                                   {new Date(cons.fecha).toLocaleDateString('es-EC', { day: '2-digit', month: 'short' })}

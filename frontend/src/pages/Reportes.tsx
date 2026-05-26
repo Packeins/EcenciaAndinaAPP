@@ -43,6 +43,7 @@ export default function Reportes() {
   const [convenios, setConvenios] = useState<Convenio[]>([]);
 
   // Datos
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [reportData, setReportData] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
@@ -105,7 +106,9 @@ export default function Reportes() {
         
         // Aplanar datos para convenio según HU Jira
         if (reportType === 'convenio') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           data = data.flatMap((emp: any) => 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (emp.consumos || []).map((c: any) => ({
               cliente: emp.empleado,
               fecha: c.fecha,
