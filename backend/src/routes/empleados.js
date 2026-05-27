@@ -62,11 +62,13 @@ router.post('/', authMiddleware, roleMiddleware(['administrador']), async (req, 
       email: correo,
       password: password,
       email_confirm: true,
+      app_metadata: {
+        rol: rolNombre,
+      },
       user_metadata: { 
         nombre, 
         apellido, 
         nombre_usuario,
-        rol: rolNombre,
         esta_activo: true
       },
     });
@@ -219,7 +221,7 @@ router.put('/:id', authMiddleware, roleMiddleware(['administrador']), async (req
     // Sincronizar metadato de rol en Auth si cambió
     const rolNombre = id_rol === 1 || id_rol === '1' ? 'administrador' : 'caja';
     await adminClient.auth.admin.updateUserById(req.params.id, {
-      user_metadata: { rol: rolNombre }
+      app_metadata: { rol: rolNombre }
     });
 
     res.json(data);

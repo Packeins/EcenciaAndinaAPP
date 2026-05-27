@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -14,9 +14,9 @@ import {
   Utensils
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { ImageUpload } from '@/components/ImageUpload';
 import { FoodSelector } from '@/components/menu/FoodSelector';
 import { apiFetch } from '@/lib/api';
+import { buildTelegramMenuImage } from '@/lib/menuImage';
 import { Alimento } from '@/types';
 
 interface Category {
@@ -25,100 +25,79 @@ interface Category {
 }
 
 export default function Menu() {
-  const { sopas, segundos, guarniciones, image } = useMenu();
+  const { sopas, segundos, guarniciones } = useMenu();
   const [isSending, setIsSending] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [allAlimentos, setAllAlimentos] = useState<Alimento[]>([]);
 
+  const cleanOptions = (options: string[]) => options.map(option => option.trim()).filter(Boolean);
+
+  const generatedMenuImage = useMemo(() => {
+    return buildTelegramMenuImage({
+      sopas: cleanOptions(sopas),
+      segundos: cleanOptions(segundos),
+      guarniciones: cleanOptions(guarniciones),
+    });
+  }, [sopas, segundos, guarniciones]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [catRes, alimRes, menuRes] = await Promise.all([
+        const [catRes, alimRes] = await Promise.all([
           apiFetch('/alimentos/categorias'),
-          apiFetch('/alimentos'),
-          apiFetch('/alimentos/menu-diario/hoy')
+          apiFetch('/alimentos')
         ]);
-        let fetchedCats: Category[] = [];
-        if (catRes.ok) {
-          fetchedCats = await catRes.json();
-          setCategories(fetchedCats);
-        }
         
-        let fetchedAlimentos = [];
-        if (alimRes.ok) {
-          fetchedAlimentos = await alimRes.json();
-          setAllAlimentos(fetchedAlimentos);
-        }
-
-        if (menuRes.ok) {
-          const menuHoy = await menuRes.json();
-          // Cargar datos en el store global
-          if (menuHoy.imagen_url) menuStore.setDailyImage(menuHoy.imagen_url);
-          
-          if (menuHoy.alimentos && menuHoy.alimentos.length > 0) {
-            const loadedSopas = menuHoy.alimentos.filter((a: Alimento) => a.id_categoria === getCategoryId('Sopa', fetchedCats)).map((a: { nombre: string }) => a.nombre);
-            const loadedSegundos = menuHoy.alimentos.filter((a: Alimento) => a.id_categoria === getCategoryId('Segundo', fetchedCats)).map((a: { nombre: string }) => a.nombre);
-            const loadedGuarniciones = menuHoy.alimentos.filter((a: Alimento) => a.id_categoria === getCategoryId('Guarni', fetchedCats)).map((a: { nombre: string }) => a.nombre);
-            
-            if (loadedSopas.length > 0) menuStore.setSopas(loadedSopas);
-            if (loadedSegundos.length > 0) menuStore.setSegundos(loadedSegundos);
-            if (loadedGuarniciones.length > 0) menuStore.setGuarniciones(loadedGuarniciones);
-          }
-        }
+        if (catRes.ok) setCategories(await catRes.json());
+        if (alimRes.ok) setAllAlimentos(await alimRes.json());
       } catch (err) {
         // Error silenciado para limpieza
       }
     };
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSendMenu = async () => {
-    const hasSopa = sopas.some(s => s.trim() !== '');
-    const hasSegundo = segundos.some(s => s.trim() !== '');
+    const menuPayload = {
+      sopas: cleanOptions(sopas),
+      segundos: cleanOptions(segundos),
+      guarniciones: cleanOptions(guarniciones),
+    };
     
-    if (!hasSopa || !hasSegundo) {
-      return toast.error('Debe haber al menos una sopa y un segundo configurados');
+    if (!menuPayload.sopas.length || !menuPayload.segundos.length || !menuPayload.guarniciones.length) {
+      return toast.error('Debe haber al menos una sopa, un segundo y una guarnicion configurados');
     }
     
     setIsSending(true);
-    
-    // Convertir strings a ids para enviar
-    const alimentosIds: number[] = [];
-    [...sopas, ...segundos, ...guarniciones].filter(s => s.trim() !== '').forEach(nombre => {
-      const found = allAlimentos.find(a => a.nombre === nombre);
-      if (found) alimentosIds.push(found.id);
-    });
-
     try {
-      const res = await apiFetch('/alimentos/menu-diario', {
+      const response = await apiFetch('/menu/enviar', {
         method: 'POST',
         body: JSON.stringify({
-          fecha: new Date().toISOString().split('T')[0],
-          alimentos_ids: alimentosIds,
-          imagen_url: image
-        })
+          ...menuPayload,
+          image: buildTelegramMenuImage(menuPayload),
+        }),
       });
+      const data = await response.json().catch(() => ({}));
 
-      if (res.ok) {
-        toast.success('¡Menú del día guardado correctamente!', {
-          description: 'El menú está listo y disponible para tomar pedidos.'
-        });
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || 'Error al guardar el menú en la base de datos');
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudo disparar el flujo de Telegram');
       }
-    } catch (err) {
-      toast.error('Error de red al guardar el menú');
+
+      toast.success('Menu enviado a n8n correctamente', {
+        description: data.mensaje || 'Telegram enviara el menu a los chats vinculados.'
+      });
+    } catch (error) {
+      toast.error('No se pudo enviar el menu', {
+        description: error instanceof Error ? error.message : 'Revisa n8n y vuelve a intentarlo.'
+      });
     } finally {
       setIsSending(false);
     }
   };
 
-  const getCategoryId = (name: string, overrideCategories?: Category[]) => {
+  const getCategoryId = (name: string) => {
     const search = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const catsToUse = overrideCategories || categories;
-    const cat = catsToUse.find(c => {
+    const cat = categories.find(c => {
       const catName = c.nombre_categoria.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       return catName.includes(search);
     });
@@ -326,16 +305,20 @@ export default function Menu() {
             <CardHeader className="bg-muted/30 border-b">
               <CardTitle className="text-xl flex items-center gap-2 text-cafe">
                 <ImageIcon style={{ color: '#C2803A' }} className="h-5 w-5" />
-                Foto del Menú
+                Imagen para Telegram
               </CardTitle>
-              <CardDescription>Sube la imagen del menú impreso</CardDescription>
+              <CardDescription>Vista previa generada con las opciones del dia</CardDescription>
             </CardHeader>
-            <CardContent className="p-6">
-              <ImageUpload 
-                value={image}
-                onChange={(val) => menuStore.setDailyImage(val)}
-                className="min-h-[300px]"
-              />
+            <CardContent className="p-4">
+              <div className="overflow-hidden rounded-lg border bg-background shadow-sm">
+                {generatedMenuImage && (
+                  <img
+                    src={generatedMenuImage}
+                    alt="Vista previa del menu para Telegram"
+                    className="aspect-[4/5] w-full object-cover"
+                  />
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -354,7 +337,7 @@ export default function Menu() {
           </Button>
           
           <p className="text-center text-sm text-muted-foreground px-4">
-            Al presionar enviar, el menú se compartirá con todos los contactos de la app de mensajería registrados.
+            Al presionar enviar, n8n compartira el menu con los chats de Telegram vinculados.
           </p>
         </div>
       </div>

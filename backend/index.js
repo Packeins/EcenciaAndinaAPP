@@ -1,6 +1,7 @@
-require('dotenv').config();
 const express = require('express');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env.local') });
+require('dotenv').config();
 const cors = require('cors');
 const { supabase } = require('./src/config/supabase'); // Configuración de Supabase
 const authRoutes = require('./src/routes/auth'); // Importamos las nuevas rutas de login
@@ -9,7 +10,7 @@ const app = express();
 
 // --- MIDDLEWARES ---
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
 
 // Servir archivos estáticos de convenios
 app.use('/uploads/convenios', express.static(path.join(__dirname, '../convenios')));
@@ -55,6 +56,7 @@ app.use('/api/convenios', require('./src/routes/convenios'));
 app.use('/api/empleados', require('./src/routes/empleados'));
 app.use('/api/categorias', require('./src/routes/categorias'));
 app.use('/api/alimentos', require('./src/routes/alimentos'));
+app.use('/api/menu', require('./src/routes/menu'));
 
 
 // --- INICIO DEL SERVIDOR ---

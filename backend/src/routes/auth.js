@@ -3,6 +3,14 @@ const router = express.Router();
 const { supabase, getAdminClient } = require('../config/supabase');
 const authMiddleware = require('../middlewares/authMiddleware');
 
+const mapRoleToAppRole = (roleName = '') => {
+  const normalized = String(roleName).toLowerCase().trim();
+  if (['super admin', 'administrativo', 'administrador', 'admin'].includes(normalized)) {
+    return 'administrador';
+  }
+  return 'caja';
+};
+
 // Ruta para el LOGIN
 router.post('/login', async (req, res) => {
   const { identificador, password } = req.body;
@@ -83,22 +91,20 @@ router.post('/login', async (req, res) => {
     }
 
     // Mapeo de Rol para el Frontend
-    let rolFrontend = 'caja';
     const rawRoles = empleadoData.roles || empleadoData.Roles;
     const roleName = (Array.isArray(rawRoles) ? rawRoles[0]?.nombre_rol : rawRoles?.nombre_rol) || '';
-    const normRole = roleName.toLowerCase().trim();
-
-    if (['administrativo', 'administrador', 'admin'].includes(normRole)) {
-      rolFrontend = 'administrador';
-    }
+    const rolFrontend = mapRoleToAppRole(roleName);
 
     // ACTUALIZAR METADATOS EN SUPABASE AUTH (para que el middleware no tenga que consultar la DB)
     // Solo lo hacemos si hay cambios o para asegurar sincronización
-    if (authData.user.user_metadata?.rol !== rolFrontend || authData.user.user_metadata?.esta_activo !== empleadoData.esta_activo) {
+    if (authData.user.app_metadata?.rol !== rolFrontend || authData.user.user_metadata?.esta_activo !== empleadoData.esta_activo) {
       await adminClient.auth.admin.updateUserById(uid, {
+        app_metadata: {
+          ...authData.user.app_metadata,
+          rol: rolFrontend,
+        },
         user_metadata: { 
           ...authData.user.user_metadata,
-          rol: rolFrontend,
           esta_activo: empleadoData.esta_activo
         }
       });

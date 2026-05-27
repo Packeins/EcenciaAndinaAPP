@@ -115,13 +115,14 @@ router.get('/menu-diario/hoy', roleMiddleware(['administrador', 'caja']), async 
     // Traer los alimentos del menú de hoy
     const { data: alimentosMenu, error } = await adminClient
       .from('menu_diario')
-      .select('id_alimento, alimentos(nombre_alimento, id_categoria_menu)')
+      .select('id_alimento, imagen_url, alimentos(nombre_alimento, id_categoria_menu)')
       .eq('fecha', hoy);
 
     if (error) throw error;
 
     res.json({
       fecha: hoy,
+      imagen_url: alimentosMenu.find(m => m.imagen_url)?.imagen_url || null,
       alimentos: alimentosMenu.map(m => ({
         id_alimento: m.id_alimento,
         nombre: m.alimentos?.nombre_alimento,
@@ -135,7 +136,7 @@ router.get('/menu-diario/hoy', roleMiddleware(['administrador', 'caja']), async 
 
 // Guardar el menú del día
 router.post('/menu-diario', roleMiddleware(['administrador', 'caja']), async (req, res) => {
-  const { fecha, alimentos_ids } = req.body;
+  const { fecha, alimentos_ids, imagen_url } = req.body;
   
   if (!fecha || !Array.isArray(alimentos_ids)) {
     return res.status(400).json({ error: 'Fecha y array de alimentos_ids requeridos' });
@@ -158,6 +159,7 @@ router.post('/menu-diario', roleMiddleware(['administrador', 'caja']), async (re
       const inserts = alimentos_ids.map(id => ({
         fecha,
         id_alimento: id,
+        imagen_url: imagen_url || null,
         created_by: userId
       }));
 
