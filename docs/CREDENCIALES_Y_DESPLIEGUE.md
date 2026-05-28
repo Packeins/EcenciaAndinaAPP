@@ -23,6 +23,7 @@ Usa estos ejemplos como plantilla:
 - `TELEGRAM_BOT_TOKEN`
 - `N8N_ENCRYPTION_KEY`
 - Credenciales Postgres usadas por n8n: `DB_POSTGRESDB_HOST`, `DB_POSTGRESDB_USER`, `DB_POSTGRESDB_PASSWORD`, `DB_POSTGRESDB_DATABASE`, `DB_POSTGRESDB_SCHEMA`.
+- `MENU_IMAGE_RETENTION_DAYS` si se quiere cambiar la retencion por defecto de 14 dias para imagenes de menus.
 
 Nunca pegues esos valores en GitHub, issues, commits, capturas publicas o mensajes del README.
 
@@ -58,3 +59,4 @@ Flujo de alta:
 - Activar solo una instancia de polling para el bot de Telegram.
 - Verificar que `getWebhookInfo.url` este vacio si el workflow usa polling.
 - En Supabase, mantener `telegram_subscriptions` sin acceso directo para `anon` y `authenticated`.
+- Revisar `telegram_order_traces` cuando un pedido automatico falle o un cliente envie un formato invalido.

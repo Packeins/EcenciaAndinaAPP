@@ -24,11 +24,25 @@ interface Category {
   nombre_categoria: string;
 }
 
+interface DailyMenu {
+  fecha: string;
+  estado: 'activo' | 'inactivo';
+  imagen_url: string | null;
+  sopas: string[];
+  segundos: string[];
+  guarniciones: string[];
+  opciones: number;
+}
+
 export default function Menu() {
   const { sopas, segundos, guarniciones } = useMenu();
   const [isSending, setIsSending] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isActivating, setIsActivating] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [allAlimentos, setAllAlimentos] = useState<Alimento[]>([]);
+  const [menus, setMenus] = useState<DailyMenu[]>([]);
+  const [selectedMenuDate, setSelectedMenuDate] = useState<string | null>(null);
 
   const cleanOptions = (options: string[]) => options.map(option => option.trim()).filter(Boolean);
 
@@ -39,6 +53,31 @@ export default function Menu() {
       guarniciones: cleanOptions(guarniciones),
     });
   }, [sopas, segundos, guarniciones]);
+
+  const applyMenu = (menu: DailyMenu) => {
+    menuStore.setSopas(menu.sopas.length ? menu.sopas : ['']);
+    menuStore.setSegundos(menu.segundos.length ? menu.segundos : ['']);
+    menuStore.setGuarniciones(menu.guarniciones.length ? menu.guarniciones : ['']);
+    menuStore.setDailyImage(menu.imagen_url);
+    setSelectedMenuDate(menu.fecha);
+  };
+
+  const fetchMenus = async (applyActive = false) => {
+    try {
+      const response = await apiFetch('/menu');
+      if (!response.ok) return;
+      const data = await response.json();
+      const loadedMenus: DailyMenu[] = Array.isArray(data.menus) ? data.menus : [];
+      setMenus(loadedMenus);
+
+      if (applyActive && loadedMenus.length) {
+        const active = loadedMenus.find(menu => menu.estado === 'activo') || loadedMenus[0];
+        applyMenu(active);
+      }
+    } catch (error) {
+      toast.error('No se pudieron cargar los menus registrados');
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -55,6 +94,8 @@ export default function Menu() {
       }
     };
     fetchData();
+    fetchMenus(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSendMenu = async () => {
@@ -86,12 +127,76 @@ export default function Menu() {
       toast.success('Menu enviado a n8n correctamente', {
         description: data.mensaje || 'Telegram enviara el menu a los chats vinculados.'
       });
+      fetchMenus(false);
     } catch (error) {
       toast.error('No se pudo enviar el menu', {
         description: error instanceof Error ? error.message : 'Revisa n8n y vuelve a intentarlo.'
       });
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const currentPayload = () => ({
+    sopas: cleanOptions(sopas),
+    segundos: cleanOptions(segundos),
+    guarniciones: cleanOptions(guarniciones),
+  });
+
+  const handleSaveMenu = async (force = false) => {
+    const menuPayload = currentPayload();
+    if (!menuPayload.sopas.length || !menuPayload.segundos.length || !menuPayload.guarniciones.length) {
+      return toast.error('Debe haber al menos una sopa, un segundo y una guarnicion configurados');
+    }
+
+    const fecha = selectedMenuDate || new Date().toISOString().split('T')[0];
+    setIsSaving(true);
+    try {
+      const response = await apiFetch(`/menu/${fecha}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ...menuPayload,
+          image: buildTelegramMenuImage(menuPayload),
+          confirmarEdicion: force,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 409 && data.requireConfirmation) {
+        const confirmed = window.confirm(data.error || 'Este menu esta activo. Confirma la edicion.');
+        if (confirmed) await handleSaveMenu(true);
+        return;
+      }
+
+      if (!response.ok) throw new Error(data.error || 'No se pudo guardar el menu');
+
+      toast.success('Menu guardado correctamente');
+      setSelectedMenuDate(fecha);
+      fetchMenus(false);
+    } catch (error) {
+      toast.error('No se pudo guardar el menu', {
+        description: error instanceof Error ? error.message : 'Revisa los datos e intenta otra vez.'
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleActivateMenu = async (menu: DailyMenu) => {
+    setIsActivating(menu.fecha);
+    try {
+      const response = await apiFetch(`/menu/${menu.fecha}/activar`, { method: 'POST' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'No se pudo activar el menu');
+      toast.success('Menu activado correctamente');
+      setSelectedMenuDate(menu.fecha);
+      fetchMenus(false);
+    } catch (error) {
+      toast.error('No se pudo activar el menu', {
+        description: error instanceof Error ? error.message : 'Intenta otra vez.'
+      });
+    } finally {
+      setIsActivating(null);
     }
   };
 
@@ -322,6 +427,51 @@ export default function Menu() {
             </CardContent>
           </Card>
 
+          <Card className="border-border shadow-sm h-fit overflow-hidden">
+            <CardHeader className="bg-muted/30 border-b">
+              <CardTitle className="text-xl flex items-center gap-2 text-cafe">
+                <CalendarDays style={{ color: '#4F6F52' }} className="h-5 w-5" />
+                Menus registrados
+              </CardTitle>
+              <CardDescription>Fecha, estado y opciones guardadas</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              {menus.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                  No existen menus registrados.
+                </div>
+              ) : (
+                menus.slice(0, 6).map(menu => (
+                  <div key={menu.fecha} className="rounded-lg border bg-background p-3 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-bold text-cafe">{new Date(menu.fecha + 'T00:00:00').toLocaleDateString('es-EC')}</p>
+                        <p className="text-xs text-muted-foreground">{menu.opciones} opciones</p>
+                      </div>
+                      <span className={menu.estado === 'activo' ? 'rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-700' : 'rounded-full bg-muted px-2 py-1 text-xs font-bold text-muted-foreground'}>
+                        {menu.estado === 'activo' ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => applyMenu(menu)}>
+                        Cargar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={menu.estado === 'activo' ? 'secondary' : 'default'}
+                        className="flex-1"
+                        disabled={menu.estado === 'activo' || isActivating === menu.fecha}
+                        onClick={() => handleActivateMenu(menu)}
+                      >
+                        {isActivating === menu.fecha ? 'Activando...' : 'Activar'}
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
           <Button 
             size="lg" 
             className="w-full h-16 text-xl font-bold gap-4 shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all hover:-translate-y-1 active:translate-y-0.5 rounded-2xl bg-primary hover:bg-primary/90"
@@ -334,6 +484,16 @@ export default function Menu() {
               <Send className="h-6 w-6" />
             )}
             {isSending ? 'Enviando...' : 'ENVIAR MENÚ'}
+          </Button>
+
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full h-12 font-bold gap-3 border-cafe text-cafe hover:bg-cafe/10"
+            onClick={() => handleSaveMenu(false)}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Guardando...' : 'Guardar cambios'}
           </Button>
           
           <p className="text-center text-sm text-muted-foreground px-4">

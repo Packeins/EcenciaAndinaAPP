@@ -8,6 +8,7 @@ const router = express.Router();
 const DEFAULT_N8N_MENU_WEBHOOK_URL = 'http://localhost:7000/webhook/eciencia-enviar-menu-manual';
 const MENU_ASSETS_BUCKET = 'eciencia-menu-assets';
 const TIMEZONE = 'America/Bogota';
+const DEFAULT_IMAGE_RETENTION_DAYS = 14;
 
 router.use(authMiddleware);
 router.use(roleMiddleware(['administrador', 'caja']));
@@ -37,6 +38,13 @@ const buildMenuPayload = (body) => ({
   segundos: cleanOptions(body.segundos),
   guarniciones: cleanOptions(body.guarniciones),
 });
+
+const cleanClientIds = (clientIds) => {
+  if (!Array.isArray(clientIds)) return [];
+  return clientIds.map((id) => String(id || '').trim()).filter(Boolean);
+};
+
+const isIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
 
 const mimeToExtension = (mimeType) => {
   if (mimeType === 'image/png') return 'png';
@@ -71,6 +79,92 @@ const uploadMenuImage = async (image) => {
 
   const { data } = adminClient.storage.from(MENU_ASSETS_BUCKET).getPublicUrl(fileName);
   return data.publicUrl;
+};
+
+const getMenuSettings = async (adminClient) => {
+  const { data, error } = await adminClient
+    .from('menu_settings')
+    .select('active_date,image_retention_days')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || { active_date: null, image_retention_days: DEFAULT_IMAGE_RETENTION_DAYS };
+};
+
+const saveActiveMenuState = async (adminClient, fecha, menu, photoUrl, userId) => {
+  const { error: settingsError } = await adminClient
+    .from('menu_settings')
+    .upsert(
+      {
+        id: 1,
+        active_date: fecha,
+        updated_by: userId,
+      },
+      { onConflict: 'id' },
+    );
+
+  if (settingsError) throw settingsError;
+
+  const { error: stateError } = await adminClient
+    .from('telegram_bot_state')
+    .upsert(
+      {
+        key: 'latest-menu:active',
+        value: {
+          date: fecha,
+          menu,
+          photoUrl,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      { onConflict: 'key' },
+    );
+
+  if (stateError) throw stateError;
+};
+
+const menuRowSelect = `
+  fecha,
+  imagen_url,
+  alimentos(
+    nombre_alimento,
+    id_categoria_menu,
+    categorias_menu(nombre_categoria)
+  )
+`;
+
+const groupMenuRows = (rows, activeDate) => {
+  const grouped = new Map();
+
+  for (const row of rows || []) {
+    if (!grouped.has(row.fecha)) {
+      grouped.set(row.fecha, {
+        fecha: row.fecha,
+        estado: row.fecha === activeDate ? 'activo' : 'inactivo',
+        imagen_url: row.imagen_url || null,
+        sopas: [],
+        segundos: [],
+        guarniciones: [],
+        opciones: 0,
+      });
+    }
+
+    const menu = grouped.get(row.fecha);
+    if (!menu.imagen_url && row.imagen_url) menu.imagen_url = row.imagen_url;
+
+    const food = Array.isArray(row.alimentos) ? row.alimentos[0] : row.alimentos;
+    const name = String(food?.nombre_alimento || '').trim();
+    if (!name) continue;
+
+    const category = normalizeText(food?.categorias_menu?.nombre_categoria || '');
+    if (category.includes('sopa')) menu.sopas.push(name);
+    else if (category.includes('segundo') || category.includes('plato')) menu.segundos.push(name);
+    else if (category.includes('guarn')) menu.guarniciones.push(name);
+    menu.opciones += 1;
+  }
+
+  return [...grouped.values()].sort((a, b) => b.fecha.localeCompare(a.fecha));
 };
 
 const getCategoryIds = async (adminClient) => {
@@ -123,8 +217,28 @@ const ensureAlimento = async (adminClient, idCategoria, nombre, userId) => {
   return data.id_alimento;
 };
 
-const saveDailyMenu = async (adminClient, menu, imageUrl, userId) => {
-  const fecha = todayInTimezone();
+const fetchMenus = async (adminClient, fecha = null) => {
+  let query = adminClient
+    .from('menu_diario')
+    .select(menuRowSelect)
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: true });
+
+  if (fecha) query = query.eq('fecha', fecha);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const settings = await getMenuSettings(adminClient);
+  return groupMenuRows(data || [], settings.active_date);
+};
+
+const getMenuByDate = async (adminClient, fecha) => {
+  const menus = await fetchMenus(adminClient, fecha);
+  return menus[0] || null;
+};
+
+const saveDailyMenu = async (adminClient, menu, imageUrl, userId, fecha = todayInTimezone()) => {
   const categoryIds = await getCategoryIds(adminClient);
   const alimentosIds = [];
 
@@ -152,6 +266,159 @@ const saveDailyMenu = async (adminClient, menu, imageUrl, userId) => {
   return { fecha, count: rows.length };
 };
 
+const storagePathFromPublicUrl = (url) => {
+  const marker = `/storage/v1/object/public/${MENU_ASSETS_BUCKET}/`;
+  const index = String(url || '').indexOf(marker);
+  if (index < 0) return '';
+  return decodeURIComponent(String(url).slice(index + marker.length).split('?')[0]);
+};
+
+const cleanupOldMenuImages = async (adminClient) => {
+  const settings = await getMenuSettings(adminClient);
+  const retentionDays = Number(settings.image_retention_days || process.env.MENU_IMAGE_RETENTION_DAYS || DEFAULT_IMAGE_RETENTION_DAYS);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - retentionDays);
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+  const { data, error } = await adminClient
+    .from('menu_diario')
+    .select('fecha,imagen_url')
+    .not('imagen_url', 'is', null);
+
+  if (error) throw error;
+
+  const protectedUrls = new Set();
+  const candidateUrls = new Set();
+
+  for (const row of data || []) {
+    if (!row.imagen_url) continue;
+    if (row.fecha >= cutoffDate || row.fecha === settings.active_date) protectedUrls.add(row.imagen_url);
+    else candidateUrls.add(row.imagen_url);
+  }
+
+  const urlsToDelete = [...candidateUrls].filter((url) => !protectedUrls.has(url));
+  const paths = urlsToDelete.map(storagePathFromPublicUrl).filter(Boolean);
+  if (!paths.length) return { retentionDays, cutoffDate, deleted: 0 };
+
+  const { error: removeError } = await adminClient.storage.from(MENU_ASSETS_BUCKET).remove(paths);
+  if (removeError) throw removeError;
+
+  const { error: updateError } = await adminClient
+    .from('menu_diario')
+    .update({ imagen_url: null })
+    .in('imagen_url', urlsToDelete)
+    .lt('fecha', cutoffDate);
+
+  if (updateError) throw updateError;
+  return { retentionDays, cutoffDate, deleted: paths.length };
+};
+
+router.get('/', async (req, res) => {
+  try {
+    const adminClient = getAdminClient();
+    const menus = await fetchMenus(adminClient);
+    res.json({ menus });
+  } catch (error) {
+    console.error('Error listando menus:', error);
+    res.status(500).json({ error: error.message || 'No se pudieron listar los menus.' });
+  }
+});
+
+router.get('/activo', async (req, res) => {
+  try {
+    const adminClient = getAdminClient();
+    const settings = await getMenuSettings(adminClient);
+    if (!settings.active_date) {
+      return res.status(404).json({ error: 'No existe un menu activo.' });
+    }
+
+    const menu = await getMenuByDate(adminClient, settings.active_date);
+    if (!menu) return res.status(404).json({ error: 'El menu activo no tiene opciones registradas.' });
+    res.json(menu);
+  } catch (error) {
+    console.error('Error consultando menu activo:', error);
+    res.status(500).json({ error: error.message || 'No se pudo consultar el menu activo.' });
+  }
+});
+
+router.put('/:fecha', async (req, res) => {
+  try {
+    const fecha = req.params.fecha;
+    if (!isIsoDate(fecha)) return res.status(400).json({ error: 'La fecha del menu debe tener formato YYYY-MM-DD.' });
+
+    const menu = buildMenuPayload(req.body || {});
+    if (!menu.sopas.length || !menu.segundos.length || !menu.guarniciones.length) {
+      return res.status(400).json({
+        error: 'Debe haber al menos una sopa, un segundo y una guarnicion configurados.',
+      });
+    }
+
+    const adminClient = getAdminClient();
+    const settings = await getMenuSettings(adminClient);
+    if (settings.active_date === fecha && !req.body?.confirmarEdicion) {
+      return res.status(409).json({
+        requireConfirmation: true,
+        error: 'Este menu esta activo. Confirma la edicion para actualizarlo.',
+      });
+    }
+
+    const current = await getMenuByDate(adminClient, fecha);
+    const photoUrl = req.body?.image ? await uploadMenuImage(req.body.image) : current?.imagen_url || null;
+    const dailyMenu = await saveDailyMenu(adminClient, menu, photoUrl, req.user.id, fecha);
+
+    if (settings.active_date === fecha) {
+      await saveActiveMenuState(adminClient, fecha, menu, photoUrl, req.user.id);
+    }
+
+    res.json({ mensaje: 'Menu actualizado correctamente.', dailyMenu, photoUrl });
+  } catch (error) {
+    console.error('Error actualizando menu:', error);
+    res.status(error.status || 500).json({ error: error.message || 'No se pudo actualizar el menu.' });
+  }
+});
+
+router.post('/:fecha/activar', async (req, res) => {
+  try {
+    const fecha = req.params.fecha;
+    if (!isIsoDate(fecha)) return res.status(400).json({ error: 'La fecha del menu debe tener formato YYYY-MM-DD.' });
+
+    const adminClient = getAdminClient();
+    const menu = await getMenuByDate(adminClient, fecha);
+    if (!menu) return res.status(404).json({ error: 'No existe un menu registrado para esa fecha.' });
+    if (!menu.sopas.length || !menu.segundos.length || !menu.guarniciones.length) {
+      return res.status(400).json({ error: 'El menu debe tener sopa, segundo y guarnicion para activarse.' });
+    }
+
+    await saveActiveMenuState(
+      adminClient,
+      fecha,
+      {
+        sopas: menu.sopas,
+        segundos: menu.segundos,
+        guarniciones: menu.guarniciones,
+      },
+      menu.imagen_url,
+      req.user.id,
+    );
+
+    res.json({ mensaje: 'Menu activado correctamente.', fecha });
+  } catch (error) {
+    console.error('Error activando menu:', error);
+    res.status(500).json({ error: error.message || 'No se pudo activar el menu.' });
+  }
+});
+
+router.post('/limpiar-imagenes', async (req, res) => {
+  try {
+    const adminClient = getAdminClient();
+    const result = await cleanupOldMenuImages(adminClient);
+    res.json({ mensaje: 'Limpieza de imagenes ejecutada.', ...result });
+  } catch (error) {
+    console.error('Error limpiando imagenes de menu:', error);
+    res.status(500).json({ error: error.message || 'No se pudieron limpiar las imagenes antiguas.' });
+  }
+});
+
 router.post('/enviar', async (req, res) => {
   try {
     const menu = buildMenuPayload(req.body || {});
@@ -164,7 +431,10 @@ router.post('/enviar', async (req, res) => {
     const photoUrl = await uploadMenuImage(req.body?.image);
     const adminClient = getAdminClient();
     const dailyMenu = await saveDailyMenu(adminClient, menu, photoUrl, req.user.id);
+    await saveActiveMenuState(adminClient, dailyMenu.fecha, menu, photoUrl, req.user.id);
+    const cleanup = await cleanupOldMenuImages(adminClient);
     const webhookUrl = process.env.N8N_MENU_WEBHOOK_URL || DEFAULT_N8N_MENU_WEBHOOK_URL;
+    const clientIds = cleanClientIds(req.body?.clientIds);
 
     const response = await fetch(webhookUrl, {
       method: 'POST',
@@ -178,6 +448,7 @@ router.post('/enviar', async (req, res) => {
         },
         menu,
         photoUrl,
+        clientIds,
       }),
     });
 
@@ -191,6 +462,7 @@ router.post('/enviar', async (req, res) => {
       webhookStatus: response.status,
       dailyMenu,
       photoUrl,
+      cleanup,
     });
   } catch (error) {
     console.error('Error disparando flujo de menu en n8n:', error);

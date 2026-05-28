@@ -86,6 +86,16 @@ Tablas relevantes para Telegram:
 
 - `telegram_subscriptions`: consentimiento, telefono normalizado, `chat_id`, estado y ultima fecha de envio.
 - `telegram_bot_state`: estado temporal de sesiones n8n.
+- `telegram_order_traces`: trazabilidad de mensaje recibido, interpretacion y resultado del pedido automatico.
+- `menu_settings`: menu activo y dias de retencion para imagenes antiguas.
+
+Endpoints utiles:
+
+- `GET /api/menu`: lista menus registrados con fecha, estado y opciones.
+- `PUT /api/menu/:fecha`: edita un menu registrado.
+- `POST /api/menu/:fecha/activar`: activa un menu como menu del dia.
+- `POST /api/menu/limpiar-imagenes`: limpia imagenes antiguas del bucket `eciencia-menu-assets`.
+- `GET /api/ordenes/telegram/trazabilidad`: consulta trazabilidad de pedidos automaticos.
 
 ## n8n y Telegram
 

@@ -78,6 +78,15 @@ async function supa(path, options = {}) {
   }
 }
 
+async function getState(key) {
+  const rows = await supa('/telegram_bot_state?' + queryString([
+    ['select', 'value'],
+    ['key', 'eq.' + key],
+    ['limit', '1'],
+  ]));
+  return rows[0]?.value || null;
+}
+
 async function setState(key, value) {
   await supa('/telegram_bot_state?on_conflict=key', {
     method: 'POST',
@@ -94,6 +103,20 @@ async function setState(key, value) {
 
 async function saveLatestMenu(today, value) {
   await setState('latest-menu:' + today, value);
+}
+
+async function saveActiveMenu(value) {
+  await setState('latest-menu:active', value);
+}
+
+async function getActiveMenu() {
+  const activeMenu = await getState('latest-menu:active');
+  if (!activeMenu?.menu) return null;
+  return {
+    date: activeMenu.date || todayInTimezone(CONFIG.timezone),
+    menu: compactMenu(activeMenu.menu),
+    photoUrl: activeMenu.photoUrl || '',
+  };
 }
 
 async function saveSession(chatId, session) {
@@ -150,10 +173,16 @@ function optionsKeyboard(kind, options) {
 }
 
 function menuCaption(today) {
-  return (
+  return trimTelegramCaption(
     'Ecencia Andina - Menu del dia ' + today + '\n\n' +
-    'Toca una sopa para comenzar. Luego elegiras el plato fuerte y la guarnicion.'
+      'Toca una sopa para comenzar. Luego elegiras el plato fuerte y la guarnicion.\n\n' +
+      'Tambien puedes responder con texto: sopa 1, segundo 1, guarnicion 1.'
   );
+}
+
+function trimTelegramCaption(text) {
+  const value = String(text || '');
+  return value.length <= 1000 ? value : value.slice(0, 997) + '...';
 }
 
 async function getMenuFromSupabase() {
@@ -250,8 +279,11 @@ function activeConvenio(client, today) {
 
 const today = todayInTimezone(CONFIG.timezone);
 const payload = items[0]?.json?.body || items[0]?.json || {};
-const menu = menuFromPayload(payload) || await getMenuFromSupabase();
-const photoUrl = imageUrlFromPayload(payload) || CONFIG.menuImageUrl;
+const payloadMenu = menuFromPayload(payload);
+const activeMenu = payloadMenu ? null : await getActiveMenu();
+const menu = payloadMenu || activeMenu?.menu || await getMenuFromSupabase();
+const photoUrl = imageUrlFromPayload(payload) || activeMenu?.photoUrl || CONFIG.menuImageUrl;
+const targetClientIds = new Set(cleanOptions(payload.clientIds));
 const product = await getProduct();
 const estadoReservadoId = await getLookupId('estados_orden', 'id_estado', 'nombre_estado', CONFIG.estadoReservadoName);
 const origenTelegramId = await getLookupId('origenes_pedido', 'id_origen', 'nombre_origen', CONFIG.origenName);
@@ -267,12 +299,21 @@ for (const subscription of subscriptions) {
 }
 
 await saveLatestMenu(today, {
+  date: today,
+  menu,
+  photoUrl,
+  source: payload?.source || 'n8n',
+});
+await saveActiveMenu({
+  date: today,
   menu,
   photoUrl,
   source: payload?.source || 'n8n',
 });
 
 for (const client of clients) {
+  if (targetClientIds.size && !targetClientIds.has(String(client.id_cliente))) continue;
+
   const subscription =
     subscriptionByClient.get(client.id_cliente) ||
     phoneCandidates(client.telefono).map((phone) => subscriptionByPhone.get(phone)).find(Boolean);
@@ -284,7 +325,9 @@ for (const client of clients) {
   const session = {
     step: 'sopa',
     date: today,
+    menuDate: activeMenu?.date || today,
     menu,
+    quantity: 1,
     cliente: {
       id_cliente: client.id_cliente,
       nombre: client.nombre,

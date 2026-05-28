@@ -150,6 +150,38 @@ router.get('/', async (req, res) => {
   }
 });
 
+// CONSULTAR TRAZABILIDAD DE PEDIDOS AUTOMATICOS DE TELEGRAM
+router.get('/telegram/trazabilidad', async (req, res) => {
+  try {
+    const adminClient = getAdminClient();
+    const limit = Math.min(Number(req.query.limit || 50), 200);
+
+    const { data, error } = await adminClient
+      .from('telegram_order_traces')
+      .select(`
+        id,
+        chat_id,
+        update_id,
+        phone_normalized,
+        original_message,
+        interpreted_payload,
+        outcome,
+        error_message,
+        created_at,
+        updated_at,
+        clientes(nombre, apellido, telefono),
+        ordenes(id_orden, created_at)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ACTUALIZAR ORDEN COMPLETA
 router.put('/:id', async (req, res) => {
   const { observaciones, detalles } = req.body;

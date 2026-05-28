@@ -118,6 +118,32 @@ async function getLatestMenu(today) {
   return getState('latest-menu:' + today);
 }
 
+async function getActiveMenu(today) {
+  const activeMenu = await getState('latest-menu:active');
+  if (activeMenu?.menu) {
+    return {
+      date: activeMenu.date || today,
+      menu: compactMenu(activeMenu.menu),
+      photoUrl: activeMenu.photoUrl || '',
+    };
+  }
+
+  const todayMenu = await getLatestMenu(today);
+  if (todayMenu?.menu) {
+    return {
+      date: todayMenu.date || today,
+      menu: compactMenu(todayMenu.menu),
+      photoUrl: todayMenu.photoUrl || '',
+    };
+  }
+
+  return {
+    date: today,
+    menu: await getMenuFromSupabase(),
+    photoUrl: '',
+  };
+}
+
 async function getSession(chatId) {
   return getState('session:' + chatId);
 }
@@ -200,10 +226,16 @@ function privacyText() {
 }
 
 function menuCaption(today) {
-  return (
+  return trimTelegramCaption(
     'Ecencia Andina - Menu del dia ' + today + '\n\n' +
-    'Toca una sopa para comenzar. Luego elegiras el plato fuerte y la guarnicion.'
+      'Toca una sopa para comenzar. Luego elegiras el plato fuerte y la guarnicion.\n\n' +
+      'Tambien puedes responder con texto: sopa 1, segundo 1, guarnicion 1.'
   );
+}
+
+function trimTelegramCaption(text) {
+  const value = String(text || '');
+  return value.length <= 1000 ? value : value.slice(0, 997) + '...';
 }
 
 function askSegundo(session) {
@@ -221,8 +253,56 @@ function optionFromCallback(data, kind, options) {
   return Number.isInteger(index) && index >= 0 && index < options.length ? options[index] : '';
 }
 
+function optionFromText(text, label, options) {
+  const normalized = normalizeText(text);
+  const labelMatch = normalized.match(new RegExp(label + '\\s*[:#-]?\\s*(\\d+)', 'i'));
+  if (labelMatch) {
+    const index = Number(labelMatch[1]) - 1;
+    if (Number.isInteger(index) && options[index]) return options[index];
+  }
+
+  return cleanOptions(options).find((option) => normalized.includes(normalizeText(option))) || '';
+}
+
+function quantityFromText(text) {
+  const normalized = normalizeText(text);
+  const match = normalized.match(/(?:cantidad|almuerzos?|pedidos?)\s*[:#-]?\s*(\d{1,2})/) || normalized.match(/\b(\d{1,2})\s*(?:almuerzos?|pedidos?)\b/);
+  if (!match) return 1;
+  const quantity = Number(match[1]);
+  return Number.isInteger(quantity) && quantity > 0 && quantity <= 20 ? quantity : 1;
+}
+
+function parseTextOrder(text, menu) {
+  const normalized = normalizeText(text);
+  const looksLikeOrder = /(sopa|segundo|plato|guarnicion|almuerzo|pedido|\d)/.test(normalized);
+  const parsed = {
+    looksLikeOrder,
+    quantity: quantityFromText(text),
+    sopa: optionFromText(text, 'sopa', menu.sopas),
+    segundo: optionFromText(text, '(?:segundo|plato)', menu.segundos),
+    guarnicion: optionFromText(text, 'guarnicion', menu.guarniciones),
+  };
+
+  parsed.missing = [];
+  if (!parsed.sopa) parsed.missing.push('sopa');
+  if (!parsed.segundo) parsed.missing.push('plato fuerte');
+  if (!parsed.guarnicion) parsed.missing.push('guarnicion');
+  parsed.valid = !parsed.missing.length;
+  return parsed;
+}
+
+function correctionText(parsed) {
+  return (
+    'No pude interpretar tu pedido completo.\n\n' +
+    'Falta: ' + parsed.missing.join(', ') + '.\n' +
+    'Responde con este formato: sopa 1, segundo 1, guarnicion 1.'
+  );
+}
+
+let activeCallbackId = '';
+
 function response(chatId, text, inlineKeyboard = undefined, replyMarkup = undefined) {
-  const callbackId = typeof update === 'object' && update?.callbackId ? update.callbackId : '';
+  const callbackId = activeCallbackId || '';
   return [
     {
       json: {
@@ -234,6 +314,44 @@ function response(chatId, text, inlineKeyboard = undefined, replyMarkup = undefi
       },
     },
   ];
+}
+
+async function createTrace(update) {
+  try {
+    const rows = await supa('/telegram_order_traces', {
+      method: 'POST',
+      body: {
+        chat_id: update.chatId || null,
+        update_id: update.updateId || null,
+        phone_normalized: update.contactPhone ? normalizePhone(update.contactPhone) : null,
+        original_message: {
+          text: update.text || '',
+          isCallback: update.isCallback,
+          hasContact: Boolean(update.contactPhone),
+          receivedAt: new Date().toISOString(),
+        },
+        outcome: 'received',
+      },
+      headers: { Prefer: 'return=representation' },
+    });
+    const trace = Array.isArray(rows) ? rows[0] : rows;
+    return trace?.id || '';
+  } catch (error) {
+    return '';
+  }
+}
+
+async function finishTrace(traceId, patch) {
+  if (!traceId) return;
+  try {
+    await supa('/telegram_order_traces?' + queryString([['id', 'eq.' + traceId]]), {
+      method: 'PATCH',
+      body: patch,
+      headers: { Prefer: 'return=minimal' },
+    });
+  } catch (error) {
+    // La trazabilidad no debe bloquear la respuesta al cliente.
+  }
 }
 
 async function promptConsent(chatId) {
@@ -256,6 +374,7 @@ function readUpdate(input) {
   const update = input.json || input;
   if (update.callback_query) {
     return {
+      updateId: Number(update.update_id || 0) || null,
       chatId: String(update.callback_query.message?.chat?.id || update.callback_query.from?.id || ''),
       text: String(update.callback_query.data || ''),
       isCallback: true,
@@ -273,6 +392,7 @@ function readUpdate(input) {
   const contactVerified = Boolean(contact?.phone_number) && (!contactUserId || contactUserId === fromId || contactUserId === chatId);
 
   return {
+    updateId: Number(update.update_id || message.update_id || 0) || null,
     chatId,
     text: String(message.text || '').trim(),
     isCallback: false,
@@ -487,8 +607,8 @@ function activeConvenio(client, today) {
 
 async function startSessionForClient(chatId, client) {
   const today = todayInTimezone(CONFIG.timezone);
-  const latestMenu = await getLatestMenu(today);
-  const menu = latestMenu?.menu ? compactMenu(latestMenu.menu) : await getMenuFromSupabase();
+  const activeMenu = await getActiveMenu(today);
+  const menu = activeMenu.menu;
   const product = await getProduct();
   const estadoReservadoId = await getLookupId('estados_orden', 'id_estado', 'nombre_estado', CONFIG.estadoReservadoName);
   const origenTelegramId = await getLookupId('origenes_pedido', 'id_origen', 'nombre_origen', CONFIG.origenName);
@@ -496,7 +616,9 @@ async function startSessionForClient(chatId, client) {
   const session = {
     step: 'sopa',
     date: today,
+    menuDate: activeMenu.date,
     menu,
+    quantity: 1,
     cliente: {
       id_cliente: client.id_cliente,
       nombre: client.nombre,
@@ -559,12 +681,14 @@ async function insertOrder(session, chatId) {
     body: {
       id_orden: order.id_orden,
       id_producto: session.product.id_producto,
-      cantidad: 1,
+      cantidad: Number(session.quantity || 1),
       precio_aplicado: Number(session.product.precio_unitario || 0),
       opciones: {
         sopa: session.sopa,
         segundo: session.segundo,
         guarnicion: session.guarnicion,
+        cantidad: Number(session.quantity || 1),
+        menuDate: session.menuDate || session.date,
         canal: 'Telegram',
       },
     },
@@ -574,12 +698,19 @@ async function insertOrder(session, chatId) {
   return order;
 }
 
+let activeChatId = '';
+let activeTraceId = '';
+
+async function main() {
 const update = readUpdate(items[0]);
 const chatId = update.chatId;
 const text = update.text;
 const contactPhone = update.contactPhone;
 const command = normalizeText(text);
 if (!chatId) return [];
+activeChatId = chatId;
+activeCallbackId = update.callbackId || '';
+activeTraceId = await createTrace(update);
 
 if (['/cancelar', 'cancelar', '/reset', 'reset'].includes(command)) {
   await clearSession(chatId);
@@ -692,6 +823,52 @@ if (session.date !== today) {
   return response(chatId, 'El menu activo ya vencio. Envia /menu para cargar el menu de hoy.');
 }
 
+if (!update.isCallback && text) {
+  const parsed = parseTextOrder(text, session.menu);
+  if (parsed.valid) {
+    session.sopa = parsed.sopa;
+    session.segundo = parsed.segundo;
+    session.guarnicion = parsed.guarnicion;
+    session.quantity = parsed.quantity;
+    const order = await insertOrder(session, chatId);
+    await clearSession(chatId);
+    await finishTrace(activeTraceId, {
+      id_cliente: session.cliente.id_cliente,
+      id_orden: order.id_orden,
+      interpreted_payload: {
+        quantity: session.quantity,
+        sopa: session.sopa,
+        segundo: session.segundo,
+        guarnicion: session.guarnicion,
+        source: 'text',
+      },
+      outcome: order.duplicate ? 'rejected' : 'success',
+      error_message: order.duplicate ? 'Reserva duplicada para el dia' : null,
+    });
+    return response(
+      chatId,
+      (order.duplicate ? 'Ya tenias una reserva registrada para hoy.\n\n' : 'Tu almuerzo quedo reservado.\n\n') +
+        'Cantidad: ' + session.quantity + '\n' +
+        'Sopa: ' + session.sopa + '\n' +
+        'Plato fuerte: ' + session.segundo + '\n' +
+        'Guarnicion: ' + session.guarnicion + '\n' +
+        'Estado: Reservado\n' +
+        'Orden: ' + order.id_orden
+    );
+  }
+
+  if (parsed.looksLikeOrder) {
+    const retryKind = session.step === 'segundo' ? 'segundo' : session.step === 'guarnicion' ? 'guarnicion' : 'sopa';
+    const retryOptions = retryKind === 'segundo' ? session.menu.segundos : retryKind === 'guarnicion' ? session.menu.guarniciones : session.menu.sopas;
+    await finishTrace(activeTraceId, {
+      interpreted_payload: parsed,
+      outcome: 'failed',
+      error_message: 'Formato incompleto o invalido',
+    });
+    return response(chatId, correctionText(parsed), optionsKeyboard(retryKind, retryOptions));
+  }
+}
+
 if (session.step === 'sopa') {
   const sopa = update.isCallback ? optionFromCallback(text, 'sopa', session.menu.sopas) : '';
   if (!sopa) {
@@ -722,9 +899,23 @@ if (session.step === 'guarnicion') {
   session.guarnicion = guarnicion;
   const order = await insertOrder(session, chatId);
   await clearSession(chatId);
+  await finishTrace(activeTraceId, {
+    id_cliente: session.cliente.id_cliente,
+    id_orden: order.id_orden,
+    interpreted_payload: {
+      quantity: Number(session.quantity || 1),
+      sopa: session.sopa,
+      segundo: session.segundo,
+      guarnicion: session.guarnicion,
+      source: 'buttons',
+    },
+    outcome: order.duplicate ? 'rejected' : 'success',
+    error_message: order.duplicate ? 'Reserva duplicada para el dia' : null,
+  });
   return response(
     chatId,
     (order.duplicate ? 'Ya tenias una reserva registrada para hoy.\n\n' : 'Tu almuerzo quedo reservado.\n\n') +
+      'Cantidad: ' + Number(session.quantity || 1) + '\n' +
       'Sopa: ' + session.sopa + '\n' +
       'Plato fuerte: ' + session.segundo + '\n' +
       'Guarnicion: ' + session.guarnicion + '\n' +
@@ -733,4 +924,26 @@ if (session.step === 'guarnicion') {
   );
 }
 
+await finishTrace(activeTraceId, {
+  outcome: 'failed',
+  error_message: 'Flujo no pudo continuar',
+});
 return response(chatId, 'No pude continuar. Envia /cancelar y luego /menu.');
+}
+
+try {
+  return await main();
+} catch (error) {
+  const message = error?.message || 'Error inesperado al procesar el pedido.';
+  await finishTrace(activeTraceId, {
+    outcome: 'failed',
+    error_message: message,
+  });
+  if (!activeChatId) throw error;
+  return response(
+    activeChatId,
+    'No pude registrar tu pedido en este momento.\n\n' +
+      'Detalle: ' + message + '\n' +
+      'Corrige la informacion o envia /menu para intentarlo otra vez.'
+  );
+}
