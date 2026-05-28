@@ -23,6 +23,7 @@ Usa estos ejemplos como plantilla:
 - `TELEGRAM_BOT_TOKEN`
 - `N8N_ENCRYPTION_KEY`
 - Credenciales Postgres usadas por n8n: `DB_POSTGRESDB_HOST`, `DB_POSTGRESDB_USER`, `DB_POSTGRESDB_PASSWORD`, `DB_POSTGRESDB_DATABASE`, `DB_POSTGRESDB_SCHEMA`.
+- `CORS_ORIGINS` con los dominios HTTPS autorizados del frontend en preproduccion/produccion.
 - `MENU_IMAGE_RETENTION_DAYS` si se quiere cambiar la retencion por defecto de 14 dias para imagenes de menus.
 
 Nunca pegues esos valores en GitHub, issues, commits, capturas publicas o mensajes del README.
@@ -52,11 +53,15 @@ Flujo de alta:
 5. El workflow valida el telefono contra `clientes`.
 6. Si el cliente esta activo, se guarda la suscripcion en `telegram_subscriptions`.
 
+Si rechaza, el bot registra el rechazo sin vincular telefono y no vuelve a enviar menus ni recordatorios. Para volver a pedir consentimiento, un administrador debe cambiar el estado a `pending` en la base de datos.
+
 ## Produccion
 
 - Usar HTTPS para frontend/backend.
+- Configurar `CORS_ORIGINS` con el dominio real del frontend; no usar comodin `*`.
 - Configurar `N8N_MENU_WEBHOOK_URL` del backend apuntando al webhook real de n8n.
 - Activar solo una instancia de polling para el bot de Telegram.
 - Verificar que `getWebhookInfo.url` este vacio si el workflow usa polling.
 - En Supabase, mantener `telegram_subscriptions` sin acceso directo para `anon` y `authenticated`.
+- Activar en Supabase Auth la proteccion contra contrasenas filtradas antes de pasar a produccion.
 - Revisar `telegram_order_traces` cuando un pedido automatico falle o un cliente envie un formato invalido.

@@ -29,6 +29,7 @@ Los PDFs, archivos de convenios subidos, backups locales, `.env` y logs no deben
 - Docker Desktop si se va a ejecutar n8n local.
 - Acceso a un proyecto Supabase.
 - Token de bot Telegram.
+- En despliegue, dominio HTTPS para frontend/backend y origen configurado en `CORS_ORIGINS`.
 
 ## Variables de entorno
 
@@ -41,6 +42,13 @@ Copy-Item backend/n8n/eciencia-n8n.env.example backend/n8n/eciencia-n8n.env
 ```
 
 Consulta [docs/CREDENCIALES_Y_DESPLIEGUE.md](docs/CREDENCIALES_Y_DESPLIEGUE.md) para saber que tokens debe compartir el administrador.
+
+Para Hostinger/preproduccion, ajusta `backend/.env.local`:
+
+```txt
+CORS_ORIGINS=https://tu-dominio.com,https://www.tu-dominio.com
+N8N_MENU_WEBHOOK_URL=https://tu-n8n/webhook/eciencia-enviar-menu-manual
+```
 
 ## Backend
 
@@ -144,7 +152,7 @@ Para el bot de pruebas usado localmente:
 https://t.me/ECIENCIATESTEBOT
 ```
 
-El cliente debe abrir el bot, enviar `/start`, aceptar el consentimiento y compartir su telefono. Solo despues de eso recibe el menu.
+El primer mensaje del bot es el aviso de privacidad. El cliente debe abrir el bot, enviar `/start`, aceptar el consentimiento y compartir su telefono. Solo despues de eso queda vinculado y recibe el menu. Si rechaza, no se registra su telefono y no recibe menus hasta que un administrador resetee su estado.
 
 ## Validacion rapida
 

@@ -9,7 +9,22 @@ const authRoutes = require('./src/routes/auth'); // Importamos las nuevas rutas 
 const app = express();
 
 // --- MIDDLEWARES ---
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || 'http://localhost:3000,http://127.0.0.1:3000')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('Origen no permitido por CORS'));
+    },
+  })
+);
 app.use(express.json({ limit: '15mb' }));
 
 // Servir archivos estáticos de convenios
@@ -58,6 +73,13 @@ app.use('/api/categorias', require('./src/routes/categorias'));
 app.use('/api/alimentos', require('./src/routes/alimentos'));
 app.use('/api/menu', require('./src/routes/menu'));
 
+app.use((error, req, res, next) => {
+  if (error?.message === 'Origen no permitido por CORS') {
+    res.status(403).json({ error: 'Origen no permitido por CORS' });
+    return;
+  }
+  next(error);
+});
 
 // --- INICIO DEL SERVIDOR ---
 const PORT = process.env.PORT || 3001;

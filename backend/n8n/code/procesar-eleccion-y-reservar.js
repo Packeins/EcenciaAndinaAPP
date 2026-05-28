@@ -21,6 +21,8 @@ const CONFIG = {
   estadoReservadoName: cfg('N8N_ECIENCIA_ESTADO_RESERVADO_NOMBRE', 'Reservado'),
 };
 
+const CONSENT_NOTICE_VERSION = 'EC-LOPDP-2026-05';
+
 function todayInTimezone(timeZone) {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -219,9 +221,13 @@ function contactKeyboard() {
 
 function privacyText() {
   return (
-    'Antes de enviarte el menu de Ecencia Andina necesitamos tu autorizacion.\n\n' +
-    'Usaremos tu telefono y tu chat de Telegram solo para vincular tu cuenta, enviarte el menu, registrar reservas y contactarte sobre tus pedidos.\n\n' +
-    'Si no aceptas, no recibiras menus ni recordatorios. Un administrador podra reactivar la solicitud mas adelante si lo pides.'
+    'Aviso de privacidad y consentimiento - Ecencia Andina\n\n' +
+    'Responsable: Ecencia Andina. Usaremos tu numero telefonico, chatId de Telegram, nombre registrado como cliente y tus selecciones de menu.\n\n' +
+    'Finalidades: vincular tu Telegram con tu ficha de cliente, enviarte el menu, registrar reservas, confirmar pedidos y atender novedades del pedido.\n\n' +
+    'Base legal: tu consentimiento libre, especifico, informado e inequivoco conforme a la Ley Organica de Proteccion de Datos Personales de Ecuador.\n\n' +
+    'Conservacion: mientras tu suscripcion este activa y durante los plazos necesarios para soporte, auditoria interna y obligaciones aplicables.\n\n' +
+    'Derechos: puedes solicitar acceso, rectificacion, actualizacion, eliminacion, oposicion, limitacion o revocar este consentimiento contactando al administrador de Ecencia Andina.\n\n' +
+    'Si no aceptas, no vincularemos tu telefono ni recibiras menus o reservas por este bot.'
   );
 }
 
@@ -355,11 +361,6 @@ async function finishTrace(traceId, patch) {
 }
 
 async function promptConsent(chatId) {
-  await upsertSubscriptionByChat(chatId, {
-    consent_status: 'pending',
-    is_active: true,
-    rejected_at: null,
-  });
   return response(chatId, privacyText(), consentKeyboard());
 }
 
@@ -482,6 +483,8 @@ async function saveAcceptedSubscription(chatId, client, phone, contactVerified) 
     chat_id: String(chatId),
     consent_status: 'accepted',
     is_active: true,
+    consent_notice_version: CONSENT_NOTICE_VERSION,
+    consent_notice_text: privacyText(),
     accepted_at: new Date().toISOString(),
     rejected_at: null,
     linked_at: new Date().toISOString(),
@@ -736,10 +739,12 @@ if (text === 'consent:reject') {
   await clearConsentStep(chatId);
   await upsertSubscriptionByChat(chatId, {
     consent_status: 'rejected',
-    is_active: true,
+    is_active: false,
+    consent_notice_version: CONSENT_NOTICE_VERSION,
+    consent_notice_text: privacyText(),
     rejected_at: new Date().toISOString(),
   });
-  return response(chatId, 'Entendido. No te enviaremos menus ni recordatorios por Telegram.');
+  return response(chatId, 'Entendido. No registraremos tu telefono ni te enviaremos menus o recordatorios por Telegram.');
 }
 
 if (text === 'consent:accept') {
@@ -748,6 +753,8 @@ if (text === 'consent:accept') {
   await upsertSubscriptionByChat(chatId, {
     consent_status: 'pending',
     is_active: true,
+    consent_notice_version: CONSENT_NOTICE_VERSION,
+    consent_notice_text: privacyText(),
     rejected_at: null,
   });
   await setConsentStep(chatId, 'accepted_pending_phone');
